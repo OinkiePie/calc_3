@@ -1,0 +1,44 @@
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    depends_on:
+      - orchestrator
+    networks:
+      - back
+    environment:
+      - ADDR_ORCHESTRATOR=orchestrator
+      - PORT_ORCHESTRATOR=8080
+  orchestrator:
+    build:
+      context: .
+      dockerfile: orchestrator/Dockerfile
+    ports:
+      - '8080:8080'
+    networks:
+      - back
+      - front
+    environment:
+      - ADDR_ORCHESTRATOR=0.0.0.0
+      - PORT_ORCHESTRATOR=8080
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    ports:
+      - '8081:8081'
+    depends_on:
+      - orchestrator
+    networks:
+      - front
+    environment:
+      - ADDR_ORCHESTRATOR=127.0.0.1
+      - PORT_ORCHESTRATOR=8080
+      - ADDR_WEB=0.0.0.0
+      - PORT_WEB=8081
+networks:
+  front:
+    driver: bridge
+  back:
+    driver: bridge

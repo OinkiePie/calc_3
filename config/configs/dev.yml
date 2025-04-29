@@ -1,0 +1,30 @@
+services:
+  orchestrator:
+    ORCHESTRATOR_ADDR: '127.0.0.1'
+    ORCHESTRATOR_PORT: 8080
+    DATABASE: 'calc.db'
+  agent:
+    COMPUTING_POWER: 1
+    AGENT_REPEAT: 5000
+    AGENT_REPEAT_ERR: 2000
+
+math:
+  TIME_ADDITION_MS: 0
+  TIME_SUBTRACTION_MS: 0
+  TIME_MULTIPLICATION_MS: 0
+  TIME_DIVISION_MS: 0
+  TIME_UNARY_MINUS_MS: 0
+  TIME_POWER_MS: 0
+
+middleware:
+  SECRET_KEY: 'secret'
+  cors_allow_origin:
+    - '*'
+
+logger:
+  level: 0 # 0 - дебаг. Включая его будьте готовы к обильному спаму в терминал.
+  time_format: '2006-01-02 15:04:05'
+  call_depth: 2
+  disable_call: false
+  disable_time: false
+  disable_color: false

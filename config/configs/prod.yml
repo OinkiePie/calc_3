@@ -1,0 +1,30 @@
+services:
+  orchestrator:
+    ORCHESTRATOR_ADDR: '127.0.0.1'
+    ORCHESTRATOR_PORT: 8080
+    DATABASE: 'calc.db'
+  agent:
+    COMPUTING_POWER: 4
+    AGENT_REPEAT: 5000
+    AGENT_REPEAT_ERR: 2000
+
+math:
+  TIME_ADDITION_MS: 100
+  TIME_SUBTRACTION_MS: 200
+  TIME_MULTIPLICATION_MS: 300
+  TIME_DIVISION_MS: 400
+  TIME_UNARY_MINUS_MS: 500
+  TIME_POWER_MS: 600
+
+middleware:
+  SECRET_KEY: 'veryveryverysecretultrahardjwtkey'
+  cors_allow_origin:
+    - '*'
+logger:
+  level: 1
+  time_format: '2006-01-02 15:04:05'
+  call_depth: 2
+  disable_call: true
+  disable_time: false
+  disable_color: false
+
