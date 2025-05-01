@@ -46,8 +46,10 @@ type MathConfig struct {
 }
 
 type MiddlewareConfig struct {
-	SECRET_KEY  string   `yaml:"SECRET_KEY"`
-	AllowOrigin []string `yaml:"cors_allow_origin"`
+	TOKEN_TTL_MIN     int      `yaml:"TOKEN_TTL_MIN"`
+	SESSION_CLEAR_MIN int      `yaml:"SESSION_CLEAR_MIN"`
+	SECRET_KEY        string   `yaml:"SECRET_KEY"`
+	AllowOrigin       []string `yaml:"cors_allow_origin"`
 }
 
 // LoggerConfig представляет параметры Логгера
@@ -71,7 +73,7 @@ func defaultConfig() *Config {
 				DATABASE:               "calc.db",
 			},
 			Agent: AgentServiceConfig{
-				COMPUTING_POWER:  4,
+				COMPUTING_POWER:  1,
 				AGENT_REPEAT:     5000,
 				AGENT_REPEAT_ERR: 2000,
 			},
@@ -85,6 +87,7 @@ func defaultConfig() *Config {
 			TIME_POWER_MS:          0,
 		},
 		Middleware: MiddlewareConfig{
+
 			SECRET_KEY:  "secret",
 			AllowOrigin: []string{"*"},
 		},
@@ -131,6 +134,26 @@ func loadEnv() error {
 	secretKey := os.Getenv("SECRET_KEY")
 	if secretKey != "" {
 		Cfg.Middleware.SECRET_KEY = secretKey
+	}
+
+	// TOKEN_TTL_MIN
+	tokenTTLMinStr := os.Getenv("TOKEN_TTL_MIN")
+	if tokenTTLMinStr != "" {
+		tokenTTLMin, err := strconv.Atoi(tokenTTLMinStr)
+		if err != nil {
+			return fmt.Errorf("ошибка преобразования TOKEN_TTL_MIN в int: %w", err)
+		}
+		Cfg.Middleware.TOKEN_TTL_MIN = tokenTTLMin
+	}
+
+	// SESSION_CLEAR_MIN
+	sessionClearMinStr := os.Getenv("SESSION_CLEAR_MIN")
+	if tokenTTLMinStr != "" {
+		sessionClearMin, err := strconv.Atoi(sessionClearMinStr)
+		if err != nil {
+			return fmt.Errorf("ошибка преобразования SESSION_CLEAR_MIN в int: %w", err)
+		}
+		Cfg.Middleware.SESSION_CLEAR_MIN = sessionClearMin
 	}
 
 	// ORCHESTRATOR_ADDR
@@ -234,6 +257,7 @@ func loadEnv() error {
 		}
 		Cfg.Math.TIME_DIVISION_MS = timeDivisionMS
 	}
+
 	// TIME_UNARY_MINUS_MS
 	timeUnaryMinusMSStr := os.Getenv("TIME_UNARY_MINUS_MS")
 	if timeUnaryMinusMSStr != "" {
@@ -243,6 +267,7 @@ func loadEnv() error {
 		}
 		Cfg.Math.TIME_UNARY_MINUS_MS = timeUnaryMinusMS
 	}
+
 	// TIME_POWER_MS
 	timePowerMSStr := os.Getenv("TIME_POWER_MS")
 	if timePowerMSStr != "" {

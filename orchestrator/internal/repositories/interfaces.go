@@ -58,6 +58,12 @@ type UserRepositoryInterface interface {
 	DeleteUser(ctx context.Context, id int64) (error, int)
 }
 
+type SessionRepositoryInterface interface {
+	CreateSession(ctx context.Context, tx *sql.Tx, jti string, sub, exp int64) (error, int)
+	ReadSession(ctx context.Context, jti string) (*models.Session, error, int)
+	DeleteSession(ctx context.Context, jti string) (error, int)
+}
+
 type ExpressionsRepositoryInterface interface {
 	// CreateExpression создает новое выражение и связанные с ним задачи.
 	//

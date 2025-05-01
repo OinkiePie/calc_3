@@ -30,7 +30,7 @@ func (h *Handlers) RegisterUserHandler(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
+		http.Error(w, "некорректный запрос", http.StatusBadRequest)
 		return
 	}
 
@@ -52,7 +52,7 @@ func (h *Handlers) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
+		http.Error(w, "некорректный запрос", http.StatusBadRequest)
 		return
 	}
 
@@ -69,7 +69,19 @@ func (h *Handlers) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log.Debugf("Пользователь №%d (%s) вошел", id, req.Login)
+}
 
+func (h *Handlers) LogoutUserHandler(w http.ResponseWriter, r *http.Request) {
+	authHeader := r.Header.Get("Authorization")
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	claims, _ := h.jwtManager.Validate(token)
+
+	if err, code := h.userManager.Logout(r.Context(), claims.JWTID); err != nil {
+		http.Error(w, err.Error(), code)
+		return
+	}
+
+	logger.Log.Debugf("Сессия %s пользователя №%d остановлена", claims.JWTID, claims.Subject)
 }
 
 func (h *Handlers) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -78,7 +90,7 @@ func (h *Handlers) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
+		http.Error(w, "некорректный запрос", http.StatusBadRequest)
 		return
 	}
 
@@ -112,11 +124,7 @@ func (h *Handlers) AddExpressionHandler(w http.ResponseWriter, r *http.Request) 
 
 	authHeader := r.Header.Get("Authorization")
 	token := strings.TrimPrefix(authHeader, "Bearer ")
-	claims, err := h.jwtManager.Validate(token)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
+	claims, _ := h.jwtManager.Validate(token)
 
 	var requestBody models.ExpressionAdd
 
@@ -154,14 +162,11 @@ func (h *Handlers) GetExpressionsHandler(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "метод не поддерживается", http.StatusMethodNotAllowed)
 		return
 	}
+	logger.Log.Fatalf("ss")
 
 	authHeader := r.Header.Get("Authorization")
 	token := strings.TrimPrefix(authHeader, "Bearer ")
-	claims, err := h.jwtManager.Validate(token)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
+	claims, _ := h.jwtManager.Validate(token)
 
 	expressions, err, code := h.exprManager.ReadExpressions(r.Context(), claims.Subject)
 	if err != nil {
@@ -202,10 +207,7 @@ func (h *Handlers) GetExpressionHandler(w http.ResponseWriter, r *http.Request) 
 
 	authHeader := r.Header.Get("Authorization")
 	token := strings.TrimPrefix(authHeader, "Bearer ")
-	if _, err := h.jwtManager.Validate(token); err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
+	claims, _ := h.jwtManager.Validate(token)
 
 	vars := mux.Vars(r)
 	idStr := vars["id"]
@@ -217,6 +219,11 @@ func (h *Handlers) GetExpressionHandler(w http.ResponseWriter, r *http.Request) 
 	expression, err, code := h.exprManager.ReadExpression(r.Context(), id)
 	if err != nil {
 		http.Error(w, err.Error(), code)
+		return
+	}
+
+	if claims.Subject != expression.UserID {
+		http.Error(w, "невозможно получить выражение другого пользователя", http.StatusForbidden)
 		return
 	}
 

@@ -22,6 +22,7 @@ func (s *OrchestratorGRPCServer) GetTask(
 	_ *pb.Empty,
 ) (*pb.TaskResponse, error) {
 	task, err, _ := s.exprManager.ReadTask(ctx)
+
 	if task == nil {
 		return nil, err
 	}
@@ -48,10 +49,10 @@ func (s *OrchestratorGRPCServer) SubmitResult(
 	in *pb.TaskCompleted,
 ) (*pb.Empty, error) {
 	completed := &models.TaskCompleted{
-		Result:     in.Result,
-		ID:         in.Id,
-		Expression: in.Expression,
-		Error:      in.Error,
+		Result:     in.GetResult(),
+		ID:         in.GetId(),
+		Expression: in.GetExpression(),
+		Error:      in.GetError(),
 	}
 
 	err, _ := s.exprManager.CompleteTask(ctx, completed)

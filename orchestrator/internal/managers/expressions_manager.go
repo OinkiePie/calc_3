@@ -193,7 +193,7 @@ outerLoop:
 		for i := range task.Args {
 			if task.Args[i] == nil {
 				dep, err, code := m.taskRepo.ReadTaskByID(ctx, tx, task.Dependencies[i])
-				if err != nil {
+				if dep == nil {
 					return nil, err, code
 				}
 				if dep.Status != "completed" {
@@ -269,7 +269,7 @@ func (m *ExpressionManager) CompleteTask(ctx context.Context, taskCompleted *mod
 		return err, code
 	}
 
-	tasks, err, code := m.taskRepo.ReadTasksByExpressionID(ctx, tx, taskCompleted.ID)
+	tasks, err, code := m.taskRepo.ReadTasksByExpressionID(ctx, tx, taskCompleted.Expression)
 	if err != nil {
 		return err, code
 	}

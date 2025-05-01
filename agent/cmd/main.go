@@ -68,19 +68,19 @@ func NewAgent(errChan chan error) *Agent {
 func (a *Agent) initWorkers(client pb.OrchestratorServiceClient) {
 	logger.Log.Debugf("Инициализация %d работников", a.power)
 	for i := range a.power {
-		a.workers[i] = workers.NewWorker(i, client, a.wg, a.errChan)
+		a.workers[i] = workers.NewWorker(i+1, client, a.wg, a.errChan)
 	}
 }
 
 // Start запускает воркеров, запуская для каждого из них отдельную горутину.
 func (a *Agent) Start() {
-	logger.Log.Debugf("Запуск %d работников", a.power)
 	conn, err := grpc.NewClient(a.addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		logger.Log.Fatalf("could not connect to grpc server: ", err)
+		logger.Log.Fatalf("Не удалось подключитсья к gRPC сервису: %v", err)
 	}
 	grpcClient := pb.NewOrchestratorServiceClient(conn)
 	a.initWorkers(grpcClient)
+	logger.Log.Debugf("Запуск %d работников", a.power)
 	for i := 1; i <= a.power; i++ {
 		go a.workers[i-1].Start(a.workersCtx)
 	}
@@ -111,5 +111,5 @@ func main() {
 		logger.Log.Infof("Сервис Агент запущен")
 	}()
 
-	shutdown.WaitForShutdown(errChan, "Agent", agentService)
+	shutdown.WaitForShutdown(errChan, "Агент", agentService)
 }

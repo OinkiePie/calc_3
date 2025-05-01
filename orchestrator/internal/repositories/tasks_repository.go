@@ -52,7 +52,7 @@ func (r *TasksRepository) CreateTask(ctx context.Context, tx *sql.Tx, task *mode
 	INSERT INTO tasks 
     	(expression_id, operation) 
     VALUES
-        (?, ?, ?)
+        (?, ?)
     RETURNING
     	id`
 
@@ -99,7 +99,7 @@ func (r *TasksRepository) ReadTaskByID(ctx context.Context, tx *sql.Tx, id int64
 	    id = ?`
 	if err := tx.QueryRowContext(ctx, query, id).Scan(&task.ID, &task.Expression, &task.Operation, &task.Result, &task.Status); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return &models.Task{}, fmt.Errorf("задача с ID %d не найдена", id), http.StatusNotFound
+			return nil, nil, http.StatusNotFound
 		}
 		return &models.Task{}, fmt.Errorf("не удалось получить задачу: %w", err), http.StatusInternalServerError
 	}
@@ -179,7 +179,7 @@ func (r *TasksRepository) ReadTasksByExpressionID(ctx context.Context, tx *sql.T
 	}
 
 	if len(tasks) == 0 {
-		return nil, fmt.Errorf("задачи выражения №%d не найдены", expressionID), http.StatusNotFound
+		return nil, nil, http.StatusNotFound
 	}
 
 	return tasks, nil, http.StatusOK
@@ -244,7 +244,7 @@ func (r *TasksRepository) ReadUncompletedTasks(ctx context.Context, tx *sql.Tx) 
 	}
 
 	if len(tasks) == 0 {
-		return nil, fmt.Errorf("невыполненные задачи не найдены"), http.StatusNotFound
+		return nil, nil, http.StatusNotFound
 	}
 
 	return tasks, nil, http.StatusOK

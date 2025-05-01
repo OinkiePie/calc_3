@@ -81,7 +81,6 @@ func (w *Worker) Start(ctx context.Context) {
 			return
 		default:
 			resp, err := w.client.GetTask(context.TODO(), &pb.Empty{})
-
 			if err != nil {
 				// Дабы избежать бесконечно спама в консоль сверяем с предыдущей ошибкой
 				if prevErr.Error() != err.Error() {
@@ -93,8 +92,8 @@ func (w *Worker) Start(ctx context.Context) {
 				continue
 			}
 
-			if resp == nil {
-				// Дабы избежать бесконечно спама в консоль проверяем был ли уже лог о ожидании
+			if resp.GetId() == 0 {
+				// Дабы избежать бесконечно спама в консоль проверяем был ли уже лог об ожидании
 				if waiting {
 					logger.Log.Debugf("Рабочий %d: Нет доступных задач. Повторные запросы каждые %d мс.",
 						w.workerID, config.Cfg.Services.Agent.AGENT_REPEAT)
@@ -105,11 +104,11 @@ func (w *Worker) Start(ctx context.Context) {
 			}
 
 			task := &models.TaskResponse{
-				ID:         resp.Id,
-				Args:       convertArgs(resp.Args),
-				Operation:  resp.Operation,
-				Expression: resp.Expression,
-				Error:      resp.Error,
+				ID:         resp.GetId(),
+				Args:       convertArgs(resp.GetArgs()),
+				Operation:  resp.GetOperation(),
+				Expression: resp.GetExpression(),
+				Error:      resp.GetError(),
 			}
 
 			logger.Log.Debugf("Рабочий %d: Получена задача %d", w.workerID, task.ID)
@@ -144,9 +143,9 @@ func (w *Worker) Start(ctx context.Context) {
 			select {
 			case result = <-resultChan:
 				<-taskCtx.Done()
-				logger.Log.Debugf("Рабочий %d: Задача %s успешно выполнена", w.workerID, task.ID)
+				logger.Log.Debugf("Рабочий %d: Задача %d успешно выполнена", w.workerID, task.ID)
 			case err = <-errorChan:
-				logger.Log.Debugf("Рабочий %d: Задача %s невыполнима: %v", w.workerID, task.ID, err)
+				logger.Log.Debugf("Рабочий %d: Задача %d невыполнима: %v", w.workerID, task.ID, err)
 				// Перезаписываем поле Error чтобы обработчик понял что выражение невыполнимо
 				task.Error = fmt.Sprintf("IMPOSSIBLE: %v", err)
 				result = 0
@@ -154,12 +153,12 @@ func (w *Worker) Start(ctx context.Context) {
 
 			if math.IsInf(result, 1) {
 				result = 0
-				task.Error = "result is +Inf"
+				task.Error = "Результат - +Inf"
 			}
 
 			if math.IsInf(result, -1) {
 				result = 0
-				task.Error = "result is -Inf"
+				task.Error = "Результат - -Inf"
 			}
 
 			// Отправляем результат (даже если был таймаут)
@@ -172,10 +171,10 @@ func (w *Worker) Start(ctx context.Context) {
 
 			_, err = w.client.SubmitResult(context.TODO(), completedTask)
 			if err != nil {
-				logger.Log.Errorf("Рабочий %d: Ошибка при отправлении задачи %s: %v", w.workerID, task.ID, err)
+				logger.Log.Errorf("Рабочий %d: Ошибка при отправлении задачи %d: %v", w.workerID, task.ID, err)
 				time.Sleep(5 * time.Second)
 			} else {
-				logger.Log.Debugf("Рабочий %d: Задача %s успешно отправлена", w.workerID, task.ID)
+				logger.Log.Debugf("Рабочий %d: Задача %d успешно отправлена", w.workerID, task.ID)
 			}
 		}
 	}

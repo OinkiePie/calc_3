@@ -37,7 +37,7 @@ import (
 //	EnableAuth - Только для защищенных маршрутов
 func NewOrchestratorRouter(provider *providers.Providers) *mux.Router {
 	handler := handlers.NewOrchestratorHandlers(provider.UserManager, provider.ExprManager, provider.JWTManager)
-	middleware := middlewares.NewOrchestratorMiddlewares(config.Cfg.Middleware.AllowOrigin, provider.JWTManager)
+	middleware := middlewares.NewOrchestratorMiddlewares(config.Cfg.Middleware.AllowOrigin, provider.UserManager, provider.JWTManager)
 	router := mux.NewRouter()
 
 	router.Use(middleware.EnableCORS)
@@ -49,6 +49,7 @@ func NewOrchestratorRouter(provider *providers.Providers) *mux.Router {
 	authRouter := router.PathPrefix("/api/p/").Subrouter()
 	authRouter.Use(middleware.EnableAuth)
 
+	authRouter.HandleFunc("/logout", handler.LogoutUserHandler).Methods("GET")
 	authRouter.HandleFunc("/delete", handler.DeleteUserHandler).Methods("POST")
 	authRouter.HandleFunc("/calculate", handler.AddExpressionHandler).Methods("POST")
 	authRouter.HandleFunc("/expressions", handler.GetExpressionsHandler).Methods("GET")

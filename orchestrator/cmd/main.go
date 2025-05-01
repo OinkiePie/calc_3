@@ -109,7 +109,7 @@ func (o *Orchestrator) Stop() {
 	if err := o.serverHTTP.Shutdown(ctx); err != nil {
 		logger.Log.Errorf("ошибка при отключении HTTP сервера: %v", err)
 	} else {
-		logger.Log.Infof("HTTP сервер успешно остановлен")
+		logger.Log.Debugf("HTTP сервер успешно остановлен")
 	}
 
 	stopped := make(chan struct{})
@@ -120,7 +120,7 @@ func (o *Orchestrator) Stop() {
 
 	select {
 	case <-stopped:
-		logger.Log.Infof("gRPC сервер успешно остановлен")
+		logger.Log.Debugf("gRPC сервер успешно остановлен")
 	case <-ctx.Done():
 		o.serverGRPC.Stop() // Принудительная остановка по таймауту
 		logger.Log.Warnf("gRPC сервер принудительно остановлен из-за тайм-аута")
@@ -129,7 +129,7 @@ func (o *Orchestrator) Stop() {
 	if err := o.provider.DB.DB.Close(); err != nil {
 		logger.Log.Errorf("Ошибка при закрытии соединения с базой данных: %v", err)
 	} else {
-		logger.Log.Infof("Соединение с базой данных успешно закрыто")
+		logger.Log.Debugf("Соединение с базой данных успешно закрыто")
 	}
 }
 
@@ -138,7 +138,7 @@ func main() {
 	initializer.Init()
 
 	errChan := make(chan error, 1)
-
+	logger.Log.Debugf("Начало создания сервиса Оркестратор...")
 	orchestratorService, err := NewOrchestrator(errChan)
 	if err != nil {
 		logger.Log.Fatalf("Ошибка при создании оркестратора: %v", err)

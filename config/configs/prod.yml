@@ -18,6 +18,8 @@ math:
   TIME_POWER_MS: 600
 
 middleware:
+  TOKEN_TTL_MIN: 1440
+  SESSION_CLEAR_MIN: 10
   SECRET_KEY: 'veryveryverysecretultrahardjwtkey'
   cors_allow_origin:
     - '*'

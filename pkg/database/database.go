@@ -4,9 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/OinkiePie/calc_3/config"
 	"github.com/OinkiePie/calc_3/pkg/logger"
 	_ "github.com/mattn/go-sqlite3"
+	"log"
 	"os"
+	"time"
 )
 
 type DataBase struct {
@@ -19,16 +22,16 @@ type DataBase struct {
 func NewDB(ctx context.Context, dsn string) (*DataBase, error) {
 	db, err := sql.Open("sqlite3", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
+		return nil, fmt.Errorf("не удалось открыть базу данных: %w", err)
 	}
 
 	_, err = db.Exec("PRAGMA foreign_keys = ON")
 	if err != nil {
-		return nil, fmt.Errorf("failed to turn on foregin keys: %w", err)
+		return nil, fmt.Errorf("не удалось включить foregin ключи: %w", err)
 	}
 
 	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("failed to ping database: %w", err)
+		return nil, fmt.Errorf("не удалось пингануть базу данных: %w", err)
 	}
 
 	database := &DataBase{
@@ -38,8 +41,10 @@ func NewDB(ctx context.Context, dsn string) (*DataBase, error) {
 	}
 
 	if err := database.createTables(); err != nil {
-		return nil, fmt.Errorf("failed to create tables: %w", err)
+		return nil, fmt.Errorf("не удалось создать таблицы: %w", err)
 	}
+
+	startSessionCleaner(db)
 
 	return database, nil
 }
@@ -52,6 +57,15 @@ func (db *DataBase) createTables() error {
 			id INTEGER PRIMARY KEY AUTOINCREMENT, 
 			login TEXT UNIQUE NOT NULL,
 			pas TEXT NOT NULL
+		);`
+
+		sessionsTable = `
+		CREATE TABLE IF NOT EXISTS sessions(
+			id VARCHAR(36) PRIMARY KEY,
+			user_id INTEGER NOT NULL,
+			expires INTEGER NOT NULL,
+		                                
+		    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 		);`
 
 		expressionsTable = `
@@ -100,6 +114,10 @@ func (db *DataBase) createTables() error {
 		return fmt.Errorf("failed to create users table: %w", err)
 	}
 
+	if _, err := db.DB.ExecContext(db.ctx, sessionsTable); err != nil {
+		return fmt.Errorf("failed to create sessions table: %w", err)
+	}
+
 	if _, err := db.DB.ExecContext(db.ctx, expressionsTable); err != nil {
 		return fmt.Errorf("failed to create expressions table: %w", err)
 	}
@@ -142,7 +160,7 @@ func (db *DataBase) DeleteDB() error {
 }
 
 func (db *DataBase) ClearDB() error {
-	tables := []string{"users", "expressions", "tasks", "task_args", "task_deps"}
+	tables := []string{"users", "expressions", "tasks", "task_args", "task_deps", "sessions"}
 
 	// Временное отключение внешних ключей
 	_, err := db.DB.ExecContext(db.ctx, "PRAGMA foreign_keys = OFF")
@@ -176,4 +194,28 @@ func (db *DataBase) ClearDB() error {
 	}
 
 	return nil
+}
+
+// startSessionCleaner запускает фоновую очистку сессий
+func startSessionCleaner(db *sql.DB) {
+	go func() {
+		ticker := time.NewTicker(time.Duration(config.Cfg.Middleware.SESSION_CLEAR_MIN) * time.Minute)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			cleanExpiredSessions(db)
+		}
+	}()
+}
+
+// cleanExpiredSessions удаляет истекшие сессии
+func cleanExpiredSessions(db *sql.DB) {
+	_, err := db.Exec(`
+		DELETE FROM sessions 
+		WHERE expires < strftime('%s', 'now')`)
+
+	if err != nil {
+		log.Printf("Ошибка при очистке сессий: %v", err)
+		return
+	}
 }

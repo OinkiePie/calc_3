@@ -3,7 +3,9 @@ package jwt
 import (
 	"errors"
 	"fmt"
+	"github.com/OinkiePie/calc_3/config"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"time"
 )
 
@@ -12,8 +14,9 @@ type JWTManager struct {
 }
 
 type Claims struct {
-	Subject   int64 `json:"sub"`
-	ExpiresAt int64 `json:"exp"`
+	Subject   int64  `json:"sub"`
+	ExpiresAt int64  `json:"exp"`
+	JWTID     string `json:"jti"`
 	jwt.RegisteredClaims
 }
 
@@ -23,12 +26,16 @@ func NewJWTManager(secretKey string) *JWTManager {
 	}
 }
 
-func (m *JWTManager) Generate(userID int64) (string, error) {
+func (m *JWTManager) Generate(userID int64) (string, string, int64, error) {
+	jti := uuid.New().String()
+	exp := time.Now().Add(time.Minute * time.Duration(config.Cfg.Middleware.TOKEN_TTL_MIN)).Unix()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": userID,
-		"exp": time.Now().Add(24 * time.Hour).Unix(),
+		"exp": exp,
+		"jti": jti,
 	})
-	return token.SignedString([]byte(m.secretKey))
+	signedToken, err := token.SignedString([]byte(m.secretKey))
+	return signedToken, jti, exp, err
 }
 
 func (m *JWTManager) Validate(tokenString string) (Claims, error) {
@@ -39,11 +46,11 @@ func (m *JWTManager) Validate(tokenString string) (Claims, error) {
 		return []byte(m.secretKey), nil
 	})
 
-	if err != nil {
+	if err != nil && !errors.Is(err, jwt.ErrTokenExpired) {
 		return Claims{}, fmt.Errorf("не удалось разобрать токен: %w", err)
 	}
 
-	if !token.Valid {
+	if !token.Valid && !errors.Is(err, jwt.ErrTokenExpired) {
 		return Claims{}, errors.New("некорректный токен")
 	}
 
@@ -52,19 +59,19 @@ func (m *JWTManager) Validate(tokenString string) (Claims, error) {
 		return Claims{}, errors.New("некорректная структура токена")
 	}
 
-	claims, err := m.parse(claimsRaw)
+	claims, err := m.parseClaims(claimsRaw)
 	if err != nil {
 		return Claims{}, err
 	}
 
 	if time.Now().Unix() > claims.ExpiresAt {
-		return Claims{}, errors.New("токен просрочен")
+		return claims, errors.New("сессия истекла")
 	}
 
 	return claims, nil
 }
 
-func (m *JWTManager) parse(claims jwt.MapClaims) (Claims, error) {
+func (m *JWTManager) parseClaims(claims jwt.MapClaims) (Claims, error) {
 	subInterface, ok := claims["sub"]
 	if !ok {
 		return Claims{}, errors.New("не удалось извлечь пользователя")
@@ -87,8 +94,15 @@ func (m *JWTManager) parse(claims jwt.MapClaims) (Claims, error) {
 	}
 	exp := int64(expFloat)
 
+	jtiInterface, ok := claims["jti"]
+	jti, ok := jtiInterface.(string)
+	if !ok {
+		return Claims{}, errors.New("не удалось преобразовать идентификатор сессии в число")
+	}
+
 	return Claims{
 		Subject:   subInt,
 		ExpiresAt: exp,
+		JWTID:     jti,
 	}, nil
 }

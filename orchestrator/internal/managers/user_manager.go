@@ -2,6 +2,7 @@ package managers
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories"
@@ -12,8 +13,10 @@ import (
 
 // UserManager предоставляет методы для управления пользователями, включая регистрацию, аутентификацию и удаление.
 type UserManager struct {
-	userRepo   *repositories.UserRepository // Репозиторий для работы с данными пользователей
-	jwtManager *jwt.JWTManager              // Менеджер для работы с JWT-токенами
+	db          *sql.DB // Подключение к базе данных
+	sessionRepo *repositories.SessionRepository
+	userRepo    *repositories.UserRepository // Репозиторий для работы с данными пользователей
+	jwtManager  *jwt.JWTManager              // Менеджер для работы с JWT-токенами
 }
 
 // NewUserManager создает новый экземпляр UserManager.
@@ -21,18 +24,22 @@ type UserManager struct {
 // Args:
 //
 //	userRepo: *repositories.UserRepository - Репозиторий пользователей
-//	jwtm: *jwt.JWTManager - Менеджер JWT-токенов
+//	jwtManager: *jwt.JWTManager - Менеджер JWT-токенов
 //
 // Returns:
 //
 //	*UserManager - Новый экземпляр менеджера пользователей
 func NewUserManager(
+	db *sql.DB,
+	sessionRepo *repositories.SessionRepository,
 	userRepo *repositories.UserRepository,
-	jwtm *jwt.JWTManager,
+	jwtManager *jwt.JWTManager,
 ) *UserManager {
 	return &UserManager{
-		userRepo:   userRepo,
-		jwtManager: jwtm,
+		db:          db,
+		sessionRepo: sessionRepo,
+		userRepo:    userRepo,
+		jwtManager:  jwtManager,
 	}
 }
 
@@ -84,21 +91,40 @@ func (m *UserManager) Register(ctx context.Context, login, password string) (int
 //		- 200 OK при успешном выполнении
 //	    - 500 Internal Server Error при ошибках
 func (m *UserManager) Login(ctx context.Context, login, password string) (string, int64, error, int) {
+	tx, err := m.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", 0, fmt.Errorf("не удалось начать вход пользователя: %w", err), http.StatusInternalServerError
+	}
+	defer tx.Rollback()
+
 	user, err, code := m.userRepo.ReadUserByLogin(ctx, login)
 	if err != nil {
-		return "", 0, errors.New("некорректный логин или пароль"), code
+		return "", 0, errors.New("неверный логин или пароль"), code
 	}
 
 	if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
-		return "", 0, errors.New("некорректный логин или пароль"), http.StatusUnauthorized
+		return "", 0, errors.New("неверный логин или пароль"), http.StatusUnauthorized
 	}
 
-	token, err := m.jwtManager.Generate(user.ID)
+	token, jti, exp, err := m.jwtManager.Generate(user.ID)
 	if err != nil {
 		return "", 0, fmt.Errorf("не удалось сгенерировать токен: %w", err), http.StatusInternalServerError
 	}
 
+	err, code = m.sessionRepo.CreateSession(ctx, tx, jti, user.ID, exp)
+	if err != nil {
+		return "", 0, err, code
+	}
+
+	if err = tx.Commit(); err != nil {
+		return "", 0, fmt.Errorf("вход пользователя не удался: %w", err), http.StatusInternalServerError
+	}
+
 	return token, user.ID, nil, http.StatusOK
+}
+
+func (m *UserManager) Logout(ctx context.Context, jti string) (error, int) {
+	return m.sessionRepo.DeleteSession(ctx, jti)
 }
 
 // Delete удаляет учетную запись пользователя после проверки пароля.
@@ -132,4 +158,15 @@ func (m *UserManager) Delete(ctx context.Context, login, password string) (int64
 	}
 
 	return user.ID, nil, http.StatusOK
+}
+
+func (m *UserManager) SessionExists(ctx context.Context, jti string) (error, bool) {
+	session, err, _ := m.sessionRepo.ReadSession(ctx, jti)
+	if session == nil {
+		if err != nil {
+			return err, false
+		}
+		return nil, false
+	}
+	return nil, true
 }

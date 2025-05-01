@@ -1,15 +1,16 @@
 package middlewares
 
 import (
+	"github.com/OinkiePie/calc_3/orchestrator/internal/managers"
 	"github.com/OinkiePie/calc_3/pkg/jwt"
-	"github.com/OinkiePie/calc_3/pkg/logger"
 	"net/http"
 	"strings"
 )
 
 // Middleware содержит middleware-функции для обработки HTTP-запросов.
 type Middleware struct {
-	allowOrigin []string        // Список разрешенных источников для CORS
+	allowOrigin []string // Список разрешенных источников для CORS
+	userManager managers.UserManagerInterface
 	jwtManager  *jwt.JWTManager // Менеджер для работы с JWT-токенами
 }
 
@@ -23,10 +24,11 @@ type Middleware struct {
 // Returns:
 //
 //	*Middleware - Новый экземпляр Middleware
-func NewOrchestratorMiddlewares(allowOrigin []string, jwtm *jwt.JWTManager) *Middleware {
+func NewOrchestratorMiddlewares(allowOrigin []string, userManager managers.UserManagerInterface, jwtManager *jwt.JWTManager) *Middleware {
 	return &Middleware{
 		allowOrigin: allowOrigin,
-		jwtManager:  jwtm,
+		userManager: userManager,
+		jwtManager:  jwtManager,
 	}
 }
 
@@ -48,15 +50,13 @@ func (m *Middleware) EnableAuth(next http.Handler) http.Handler {
 
 		// Проверяем, что заголовок Authorization присутствует.
 		if authHeader == "" {
-			logger.Log.Debugf("Отсутствует заголовок Authorization")
-			http.Error(w, "Unauthorized: Missing authorization header", http.StatusUnauthorized) // 401
+			http.Error(w, "Отсутствует заголовок Authorization", http.StatusUnauthorized) // 401
 			return
 		}
 
 		// Проверяем, что заголовок начинается с префикса (например, "Bearer ").
 		if !strings.HasPrefix(authHeader, "Bearer ") {
-			logger.Log.Debugf("Неверный формат заголовка Authorization")
-			http.Error(w, "Unauthorized: Invalid authorization header format", http.StatusUnauthorized) // 401
+			http.Error(w, "Неверный формат заголовка Authorization", http.StatusUnauthorized) // 401
 			return
 		}
 
@@ -65,13 +65,29 @@ func (m *Middleware) EnableAuth(next http.Handler) http.Handler {
 
 		// Проверяем, что API-ключ не пустой.
 		if token == "" {
-			logger.Log.Debugf("Пустой API-ключ")
-			http.Error(w, "Unauthorized: Empty API key", http.StatusUnauthorized) // 401
+			http.Error(w, "Пустой ключ авторизации", http.StatusUnauthorized) // 401
 			return
 		}
 
-		if _, err := m.jwtManager.Validate(token); err != nil {
-			http.Error(w, err.Error(), http.StatusUnauthorized) // 401
+		claims, err := m.jwtManager.Validate(token)
+
+		if err != nil {
+			if claims.JWTID != "" {
+				err, _ := m.userManager.Logout(r.Context(), claims.JWTID)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusUnauthorized)
+					return
+				}
+			}
+			http.Error(w, "Сессия была завершена или истекла", http.StatusUnauthorized)
+			return
+		}
+
+		if err, exists := m.userManager.SessionExists(r.Context(), claims.JWTID); !exists {
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusUnauthorized)
+			}
+			http.Error(w, "Сессия была завершена или истекла", http.StatusUnauthorized)
 			return
 		}
 

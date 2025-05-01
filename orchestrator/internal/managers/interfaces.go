@@ -43,6 +43,8 @@ type UserManagerInterface interface {
 	//	    - 500 Internal Server Error при ошибках
 	Login(ctx context.Context, login, password string) (string, int64, error, int)
 
+	Logout(ctx context.Context, jti string) (error, int)
+
 	// Delete удаляет учетную запись пользователя после проверки пароля.
 	//
 	// Args:
@@ -60,6 +62,8 @@ type UserManagerInterface interface {
 	//		- 200 OK при успешном выполнении
 	//	    - 500 Internal Server Error при ошибках
 	Delete(ctx context.Context, login, password string) (int64, error, int)
+
+	SessionExists(ctx context.Context, jti string) (error, bool)
 }
 
 type ExpressionManagerInterface interface {

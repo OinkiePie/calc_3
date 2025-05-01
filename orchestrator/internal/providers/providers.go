@@ -12,6 +12,7 @@ import (
 // Providers содержит все зависимости (репозитории и менеджеры) приложения.
 // Используется для централизованного управления зависимостями и внедрения их в обработчики.
 type Providers struct {
+	SessionRepo repositories.SessionRepositoryInterface
 	UserRepo    repositories.UserRepositoryInterface        // Репозиторий пользователей
 	UserManager managers.UserManagerInterface               // Менеджер пользователей
 	ArgsRepo    repositories.TasksArgsRepositoryInterface   // Репозиторий аргументов задач
@@ -49,8 +50,9 @@ func NewProviders(ctx context.Context, dbPath string, jwtKey string) (*Providers
 
 	jwtManager := jwt.NewJWTManager(jwtKey)
 
+	sessionRepo := repositories.NewSessionRepository(db.DB)
 	userRepo := repositories.NewUserRepository(db.DB)
-	userManager := managers.NewUserManager(userRepo, jwtManager)
+	userManager := managers.NewUserManager(db.DB, sessionRepo, userRepo, jwtManager)
 
 	argsRepo := repositories.NewTaskArgsRepository(db.DB)
 	depsRepo := repositories.NewTaskDepsRepository(db.DB)
@@ -59,6 +61,7 @@ func NewProviders(ctx context.Context, dbPath string, jwtKey string) (*Providers
 	taskManager := managers.NewExpressionManager(db.DB, exprRepo, taskRepo)
 
 	return &Providers{
+		SessionRepo: sessionRepo,
 		UserRepo:    userRepo,
 		UserManager: userManager,
 		ArgsRepo:    argsRepo,
