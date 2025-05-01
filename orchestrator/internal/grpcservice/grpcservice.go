@@ -19,7 +19,7 @@ func NewOrchestratorGRPCServer(provider *providers.Providers) *OrchestratorGRPCS
 
 func (s *OrchestratorGRPCServer) GetTask(
 	ctx context.Context,
-	in *pb.Empty,
+	_ *pb.Empty,
 ) (*pb.TaskResponse, error) {
 	task, err, _ := s.exprManager.ReadTask(ctx)
 	if task == nil {
