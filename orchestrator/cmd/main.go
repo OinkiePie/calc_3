@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/grpcservice"
 	"github.com/OinkiePie/calc_3/orchestrator/internal/providers"
+	"google.golang.org/grpc"
+	"net"
 	"net/http"
 	"time"
 
@@ -11,16 +15,19 @@ import (
 	"github.com/OinkiePie/calc_3/orchestrator/internal/router"
 	"github.com/OinkiePie/calc_3/pkg/initializer"
 	"github.com/OinkiePie/calc_3/pkg/logger"
+	pb "github.com/OinkiePie/calc_3/pkg/proto"
 	"github.com/OinkiePie/calc_3/pkg/shutdown"
 	"github.com/rs/cors"
 )
 
 // Orchestrator представляет собой сервис оркестратора.
 type Orchestrator struct {
-	errChan  chan error   // Канал для отправки ошибок, возникающих в сервисе.
-	server   *http.Server // Указатель на структуру http.Server, управляющую HTTP-сервером.
-	addr     string       // Адрес, на котором прослушивает HTTP-сервер.
-	provider *providers.Providers
+	errChan    chan error   // Канал для отправки ошибок, возникающих в сервисе.
+	serverHTTP *http.Server // Указатель на структуру http.Server, управляющую HTTP-сервером.
+	serverGRPC *grpc.Server
+	addrGRPC   string // Адрес, на котором прослушивает gRPC-сервер.
+	addrHTTP   string // Адрес, на котором прослушивает HTTP-сервер.
+	provider   *providers.Providers
 }
 
 // NewOrchestrator создает новый экземпляр сервиса оркестратора.
@@ -33,7 +40,7 @@ type Orchestrator struct {
 //
 //	*Orchestrator - Указатель на новый экземпляр структуры Orchestrator.
 func NewOrchestrator(errChan chan error) (*Orchestrator, error) {
-	addr := fmt.Sprintf("%s:%d", config.Cfg.Services.Orchestrator.ORCHESTRATOR_ADDR, config.Cfg.Services.Orchestrator.ORCHESTRATOR_PORT)
+	addrHTTP := fmt.Sprintf("%s:%d", config.Cfg.Services.Orchestrator.ORCHESTRATOR_ADDR, config.Cfg.Services.Orchestrator.ORCHESTRATOR_HTTP_PORT)
 
 	ctx := context.TODO()
 	provider, err := providers.NewProviders(ctx, config.Cfg.Services.Orchestrator.DATABASE, config.Cfg.Middleware.SECRET_KEY)
@@ -49,45 +56,83 @@ func NewOrchestrator(errChan chan error) (*Orchestrator, error) {
 		AllowCredentials: true,
 	})
 	routerHttp := c.Handler(muxRouter)
-	// Создаем экземпляр структуры http.Server, указывая адрес и обработчик
-	srv := &http.Server{
-		Addr:    addr,
+	serverHTTP := &http.Server{
+		Addr:    addrHTTP,
 		Handler: routerHttp,
 	}
 
-	return &Orchestrator{errChan: errChan, server: srv, addr: addr, provider: provider}, nil
+	addrGRPC := fmt.Sprintf("%s:%d", config.Cfg.Services.Orchestrator.ORCHESTRATOR_ADDR, config.Cfg.Services.Orchestrator.ORCHESTRATOR_GRPC_PORT)
+
+	serverGRPC := grpc.NewServer()
+	serviceGRPC := grpcservice.NewOrchestratorGRPCServer(provider)
+	pb.RegisterOrchestratorServiceServer(serverGRPC, serviceGRPC)
+
+	return &Orchestrator{
+		errChan:    errChan,
+		serverHTTP: serverHTTP,
+		serverGRPC: serverGRPC,
+		addrGRPC:   addrGRPC,
+		addrHTTP:   addrHTTP,
+		provider:   provider,
+	}, nil
 }
 
 // Start запускает HTTP-сервер в отдельной горутине. Если во время запуска
 // возникает ошибка, она отправляется в канал ошибок.
 func (o *Orchestrator) Start() {
-	// Запускаем сервер в отдельной горутине, чтобы не блокировать основной поток выполнения.
 	go func() {
-		// Запускаем прослушивание входящих соединений на указанном адресе.
-		if err := o.server.ListenAndServe(); err != http.ErrServerClosed {
-			// Если при запуске сервера произошла ошибка, отправляем её в канал ошибок.
+		if err := o.serverHTTP.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+			err = fmt.Errorf("ошибка запуска http сервера: %s", err)
+			o.errChan <- err
+		}
+	}()
+
+	go func() {
+		lis, err := net.Listen("tcp", o.addrGRPC)
+		if err != nil {
+			err = fmt.Errorf("ошибка запуска слушателя tcp: %s", err)
+			o.errChan <- err
+		}
+		if err = o.serverGRPC.Serve(lis); err != nil {
+			err = fmt.Errorf("ошибка обслуживания gRPC: %s", err)
 			o.errChan <- err
 		}
 	}()
 }
 
-// Stop останавливает HTTP-сервер. Он использует контекст с таймаутом, чтобы
+// Stop останавливает сервис. Он использует контекст с таймаутом, чтобы
 // гарантировать, что остановка не займет слишком много времени.
 func (o *Orchestrator) Stop() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	err := o.server.Shutdown(ctx)
-	if err != nil {
-		logger.Log.Errorf("Ошибка при остановке сервиса Оркестратор")
+	if err := o.serverHTTP.Shutdown(ctx); err != nil {
+		logger.Log.Errorf("ошибка при отключении HTTP сервера: %v", err)
+	} else {
+		logger.Log.Infof("HTTP сервер успешно остановлен")
 	}
-	err = o.provider.DB.DB.Close()
-	if err != nil {
-		logger.Log.Errorf("Ошибка при отключении базы данных")
+
+	stopped := make(chan struct{})
+	go func() {
+		o.serverGRPC.GracefulStop()
+		close(stopped)
+	}()
+
+	select {
+	case <-stopped:
+		logger.Log.Infof("gRPC сервер успешно остановлен")
+	case <-ctx.Done():
+		o.serverGRPC.Stop() // Принудительная остановка по таймауту
+		logger.Log.Warnf("gRPC сервер принудительно остановлен из-за тайм-аута")
+	}
+
+	if err := o.provider.DB.DB.Close(); err != nil {
+		logger.Log.Errorf("Ошибка при закрытии соединения с базой данных: %v", err)
+	} else {
+		logger.Log.Infof("Соединение с базой данных успешно закрыто")
 	}
 }
 
-// Запуск сервиса оркестратора
 func main() {
 	// Инициализация конфига и логгера
 	initializer.Init()
@@ -96,14 +141,14 @@ func main() {
 
 	orchestratorService, err := NewOrchestrator(errChan)
 	if err != nil {
-		logger.Log.Fatalf("Ошибка при создании оркестратораЖ %v", err)
+		logger.Log.Fatalf("Ошибка при создании оркестратора: %v", err)
 	}
 
 	go func() {
 		logger.Log.Debugf("Запуск сервиса Оркестратор...")
 		orchestratorService.Start()
-		logger.Log.Infof("Cервис Оркестратор запущен на %s", orchestratorService.addr)
+		logger.Log.Infof("HTTP Cервис Оркестратора запущен на %s", orchestratorService.addrHTTP)
 	}()
 
-	shutdown.WaitForShutdown(errChan, "Orchestrator", orchestratorService)
+	shutdown.WaitForShutdown(errChan, "Оркестратор", orchestratorService)
 }

@@ -31,10 +31,6 @@ import (
 //	    GET /api/p/expressions - Получение списка выражений
 //	    GET /api/p/expressions/{id} - Получение выражения по ID
 //
-//	Внутренние (для агентов):
-//	    GET /internal/task - Получение задачи
-//	    POST /internal/task - Завершение задачи
-//
 // Middleware:
 //
 //	EnableCORS - Для всех запросов
@@ -57,10 +53,6 @@ func NewOrchestratorRouter(provider *providers.Providers) *mux.Router {
 	authRouter.HandleFunc("/calculate", handler.AddExpressionHandler).Methods("POST")
 	authRouter.HandleFunc("/expressions", handler.GetExpressionsHandler).Methods("GET")
 	authRouter.HandleFunc("/expressions/{id}", handler.GetExpressionHandler).Methods("GET")
-
-	// Internal endpoints (внутренние конечные точки, используемые агентом)
-	router.HandleFunc("/internal/task", handler.GetTaskHandler).Methods("GET")
-	router.HandleFunc("/internal/task", handler.CompleteTaskHandler).Methods("POST")
 
 	return router
 }

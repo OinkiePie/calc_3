@@ -24,9 +24,10 @@ type ServicesConfig struct {
 }
 
 type OrchestratorServiceConfig struct {
-	ORCHESTRATOR_ADDR string `yaml:"ORCHESTRATOR_ADDR"`
-	ORCHESTRATOR_PORT int    `yaml:"ORCHESTRATOR_PORT"`
-	DATABASE          string `yaml:"DATABASE"`
+	ORCHESTRATOR_ADDR      string `yaml:"ORCHESTRATOR_ADDR"`
+	ORCHESTRATOR_HTTP_PORT int    `yaml:"ORCHESTRATOR_PORT"`
+	ORCHESTRATOR_GRPC_PORT int    `yaml:"ORCHESTRATOR_GRPC_PORT"`
+	DATABASE               string `yaml:"DATABASE"`
 }
 
 type AgentServiceConfig struct {
@@ -64,9 +65,10 @@ func defaultConfig() *Config {
 	return &Config{
 		Services: ServicesConfig{
 			Orchestrator: OrchestratorServiceConfig{
-				ORCHESTRATOR_ADDR: "127.0.0.1",
-				ORCHESTRATOR_PORT: 8080,
-				DATABASE:          "calc.db",
+				ORCHESTRATOR_ADDR:      "127.0.0.1",
+				ORCHESTRATOR_HTTP_PORT: 8080,
+				ORCHESTRATOR_GRPC_PORT: 50051,
+				DATABASE:               "calc.db",
 			},
 			Agent: AgentServiceConfig{
 				COMPUTING_POWER:  4,
@@ -137,14 +139,24 @@ func loadEnv() error {
 		Cfg.Services.Orchestrator.ORCHESTRATOR_ADDR = addrOrchestrator
 	}
 
-	// ORCHESTRATOR_PORT
-	portOrchestratorStr := os.Getenv("ORCHESTRATOR_PORT")
-	if portOrchestratorStr != "" {
-		portOrchestrator, err := strconv.Atoi(portOrchestratorStr)
+	// ORCHESTRATOR_HTTP_PORT
+	portHTTPOrchestratorStr := os.Getenv("ORCHESTRATOR_HTTP_PORT")
+	if portHTTPOrchestratorStr != "" {
+		portHTTPOrchestrator, err := strconv.Atoi(portHTTPOrchestratorStr)
 		if err != nil {
-			return fmt.Errorf("ошибка преобразования ORCHESTRATOR_PORT в int: %w", err)
+			return fmt.Errorf("ошибка преобразования ORCHESTRATOR_HTTP_PORT в int: %w", err)
 		}
-		Cfg.Services.Orchestrator.ORCHESTRATOR_PORT = portOrchestrator
+		Cfg.Services.Orchestrator.ORCHESTRATOR_HTTP_PORT = portHTTPOrchestrator
+	}
+
+	// ORCHESTRATOR_GRPC_PORT
+	portGRPCOrchestratorStr := os.Getenv("ORCHESTRATOR_GRPC_PORT")
+	if portGRPCOrchestratorStr != "" {
+		portGRPCOrchestrator, err := strconv.Atoi(portGRPCOrchestratorStr)
+		if err != nil {
+			return fmt.Errorf("ошибка преобразования ORCHESTRATOR_GRPC_PORT в int: %w", err)
+		}
+		Cfg.Services.Orchestrator.ORCHESTRATOR_GRPC_PORT = portGRPCOrchestrator
 	}
 
 	// DATABASE

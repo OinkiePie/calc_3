@@ -2,13 +2,20 @@ package models
 
 // Task представляет структуру для части арифметического выражения, которую нужно вычислить.
 type Task struct {
-	ID           int64
-	Args         []*float64
-	Operation    string
+	// ID - Уникальный идентификатор задачи.
+	ID int64
+	// Args - Срез указателей на аргументы задачи.
+	Args []*float64
+	// Operation - Операция, которую необходимо выполнить.
+	Operation string
+	// Dependencies - Срез ID задач-зависимостей.
 	Dependencies []int64
-	Status       string
-	Result       *float64
-	Expression   int64
+	// Status - Статус выполнения выражения
+	Status string
+	// Result - Результат вычисления задачи.
+	Result *float64
+	// Expression - ID выражения, к которому принадлежит данная задача.
+	Expression int64
 
 	DependencyIndexes []int
 }

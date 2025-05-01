@@ -1,0 +1,39 @@
+syntax = "proto3";
+package calculation;
+option go_package = "github.com/OinkiePie/calc_3/pkg/proto";
+
+message WrappedDouble {
+  // Поле optional создаст *float64 в Go
+  optional double value = 1;
+}
+
+message TaskResponse {
+  // ID - Уникальный идентификатор задачи.
+  int64 id = 1;
+  // Args - Срез указателей на аргументы задачи.
+  repeated WrappedDouble args = 2;
+  // Operation - Операция, которую необходимо выполнить.
+  string operation = 3;
+  // Expression - ID выражения, к которому принадлежит данная задача.
+  int64 expression = 4;
+  // Error - Указывает на ошибку вычисления задачи
+  string error = 5;
+}
+
+message TaskCompleted {
+  // Expression - ID корневого выражения, к которому принадлежит задача.
+  int64 expression = 1;
+  // ID - Уникальный идентификатор задачи.
+  int64 id = 2;
+  // Result - Результат вычисления задачи.
+  double result = 3;
+  // Error - Указывает на невыполнимость задачи
+  string error = 4;
+}
+
+message Empty {}
+
+service OrchestratorService {
+  rpc GetTask(Empty) returns (TaskResponse);
+  rpc SubmitResult(TaskCompleted) returns (Empty);
+}

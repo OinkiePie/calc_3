@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/OinkiePie/calc_3/agent/internal/client"
 	"github.com/OinkiePie/calc_3/config"
 	"github.com/OinkiePie/calc_3/pkg/logger"
 	"github.com/OinkiePie/calc_3/pkg/models"
 	"github.com/OinkiePie/calc_3/pkg/operators"
+	pb "github.com/OinkiePie/calc_3/pkg/proto"
 )
 
 var (
@@ -22,10 +22,10 @@ var (
 
 // Worker представляет собой рабочего, выполняющего задачи.
 type Worker struct {
-	errChan   chan error        // Канал для отправки ошибок, возникающих при выполнении задач.
-	workerID  int               // Уникальный идентификатор рабочего.
-	apiClient *client.APIClient // API-клиент для получения и отправки задач.
-	wg        *sync.WaitGroup   // WaitGroup для сигнализации о завершении работы.
+	errChan  chan error                   // Канал для отправки ошибок, возникающих при выполнении задач.
+	workerID int                          // Уникальный идентификатор рабочего.
+	client   pb.OrchestratorServiceClient // API-клиент для получения и отправки задач.
+	wg       *sync.WaitGroup              // WaitGroup для сигнализации о завершении работы.
 }
 
 // NewWorker создает новый экземпляр рабочего.
@@ -40,12 +40,12 @@ type Worker struct {
 // Returns:
 //
 //	*Worker: Указатель на новый экземпляр структуры Worker.
-func NewWorker(workerID int, apiClient *client.APIClient, wg *sync.WaitGroup, errChan chan error) *Worker {
+func NewWorker(workerID int, client pb.OrchestratorServiceClient, wg *sync.WaitGroup, errChan chan error) *Worker {
 	return &Worker{
-		workerID:  workerID,
-		apiClient: apiClient,
-		wg:        wg,
-		errChan:   errChan,
+		workerID: workerID,
+		client:   client,
+		wg:       wg,
+		errChan:  errChan,
 	}
 }
 
@@ -80,7 +80,8 @@ func (w *Worker) Start(ctx context.Context) {
 			logger.Log.Debugf("Рабочий %d отключен", w.workerID)
 			return
 		default:
-			task, err := w.apiClient.GetTask()
+			resp, err := w.client.GetTask(context.TODO(), &pb.Empty{})
+
 			if err != nil {
 				// Дабы избежать бесконечно спама в консоль сверяем с предыдущей ошибкой
 				if prevErr.Error() != err.Error() {
@@ -92,7 +93,7 @@ func (w *Worker) Start(ctx context.Context) {
 				continue
 			}
 
-			if task == nil {
+			if resp == nil {
 				// Дабы избежать бесконечно спама в консоль проверяем был ли уже лог о ожидании
 				if waiting {
 					logger.Log.Debugf("Рабочий %d: Нет доступных задач. Повторные запросы каждые %d мс.",
@@ -103,7 +104,15 @@ func (w *Worker) Start(ctx context.Context) {
 				continue
 			}
 
-			logger.Log.Debugf("Рабочий %d: Получена задача %s", w.workerID, task.ID)
+			task := &models.TaskResponse{
+				ID:         resp.Id,
+				Args:       convertArgs(resp.Args),
+				Operation:  resp.Operation,
+				Expression: resp.Expression,
+				Error:      resp.Error,
+			}
+
+			logger.Log.Debugf("Рабочий %d: Получена задача %d", w.workerID, task.ID)
 			waiting = true
 			//  Создаем контекст с таймаутом
 			taskCtx, cancel := context.WithTimeout(context.Background(), calcOperationTime(task.Operation))
@@ -154,14 +163,14 @@ func (w *Worker) Start(ctx context.Context) {
 			}
 
 			// Отправляем результат (даже если был таймаут)
-			completedTask := models.TaskCompleted{
+			completedTask := &pb.TaskCompleted{
 				Expression: task.Expression,
-				ID:         task.ID,
+				Id:         task.ID,
 				Result:     result,
 				Error:      task.Error,
 			}
 
-			err = w.apiClient.CompleteTask(completedTask)
+			_, err = w.client.SubmitResult(context.TODO(), completedTask)
 			if err != nil {
 				logger.Log.Errorf("Рабочий %d: Ошибка при отправлении задачи %s: %v", w.workerID, task.ID, err)
 				time.Sleep(5 * time.Second)
@@ -262,4 +271,14 @@ func calcOperationTime(operation string) time.Duration {
 	}
 
 	return time.Duration(timeMs) * time.Millisecond
+}
+
+func convertArgs(pbArgs []*pb.WrappedDouble) []*float64 {
+	goArgs := make([]*float64, len(pbArgs))
+	for i, arg := range pbArgs {
+		if arg != nil {
+			goArgs[i] = arg.Value
+		}
+	}
+	return goArgs
 }

@@ -3,27 +3,28 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"sync"
-	"time"
 
-	"github.com/OinkiePie/calc_3/agent/internal/client"
 	"github.com/OinkiePie/calc_3/agent/internal/workers"
 	"github.com/OinkiePie/calc_3/config"
 	"github.com/OinkiePie/calc_3/pkg/initializer"
 	"github.com/OinkiePie/calc_3/pkg/logger"
+	pb "github.com/OinkiePie/calc_3/pkg/proto"
 	"github.com/OinkiePie/calc_3/pkg/shutdown"
 )
 
 // Agent представляет собой сервис агента, отвечающий за выполнение задач.
 type Agent struct {
+	addr        string
 	errChan     chan error         // Канал для отправки ошибок, возникающих в сервисе.
 	stopWorkers context.CancelFunc // Функция для остановки всех воркеров.
-	wokertsCtx  context.Context    // Контекст, используемый воркерами для выполнения задач.
-	client      *client.APIClient  // API-клиент для связи с сервисом оркестратора.
-	workers     []*workers.Worker  // Список воркеров, выполняющих задачи.
-	power       int                // Вычислительная мощность агента (количество воркеров).
-	wg          *sync.WaitGroup    // WaitGroup для ожидания завершения всех воркеров.
+	connection  *grpc.ClientConn
+	workersCtx  context.Context   // Контекст, используемый воркерами для выполнения задач.
+	workers     []*workers.Worker // Список воркеров, выполняющих задачи.
+	power       int               // Вычислительная мощность агента (количество воркеров).
+	wg          *sync.WaitGroup   // WaitGroup для ожидания завершения всех воркеров.
 }
 
 // NewAgent создает новый экземпляр сервиса агента.
@@ -36,49 +37,52 @@ type Agent struct {
 //
 //	*Agent - Указатель на новый экземпляр структуры Agent.
 func NewAgent(errChan chan error) *Agent {
-	httpClient := &http.Client{
-		Timeout: time.Second * 10,
+	addr := fmt.Sprintf("%s:%d",
+		config.Cfg.Services.Orchestrator.ORCHESTRATOR_ADDR,
+		config.Cfg.Services.Orchestrator.ORCHESTRATOR_GRPC_PORT)
+
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		logger.Log.Fatalf("could not connect to grpc server: ", err)
 	}
 
-	apiClient := client.NewAPIClient(
-		fmt.Sprintf("http://%s:%d/internal/task",
-			config.Cfg.Services.Orchestrator.ORCHESTRATOR_ADDR,
-			config.Cfg.Services.Orchestrator.ORCHESTRATOR_PORT),
-		httpClient,
-	)
-
 	ctx, cancel := context.WithCancel(context.Background())
-
 	computingPower := config.Cfg.Services.Agent.COMPUTING_POWER
 	workersGroup := make([]*workers.Worker, computingPower)
 
 	a := &Agent{
-		errChan:     errChan,           // Канал для ошибок
-		wokertsCtx:  ctx,               // Контекст для воркеров
-		stopWorkers: cancel,            // Функция для отмены контекста
-		client:      apiClient,         // API-клиент
+		addr:        addr,
+		errChan:     errChan, // Канал для ошибок
+		workersCtx:  ctx,     // Контекст для воркеров
+		stopWorkers: cancel,  // Функция для отмены контекста
+		connection:  conn,
 		workers:     workersGroup,      // Слайс воркеров
 		power:       computingPower,    // Вычислительная мощность
 		wg:          &sync.WaitGroup{}, // WaitGroup для ожидания завершения воркеров
 	}
-	a.initWorkers()
 	return a
 }
 
 // initWorkers инициализирует воркеров, создавая новые экземпляры Worker
 // и добавляя их в слайс workers.
-func (a *Agent) initWorkers() {
+func (a *Agent) initWorkers(client pb.OrchestratorServiceClient) {
 	logger.Log.Debugf("Инициализация %d работников", a.power)
 	for i := range a.power {
-		a.workers[i] = workers.NewWorker(i, a.client, a.wg, a.errChan)
+		a.workers[i] = workers.NewWorker(i, client, a.wg, a.errChan)
 	}
 }
 
 // Start запускает воркеров, запуская для каждого из них отдельную горутину.
 func (a *Agent) Start() {
 	logger.Log.Debugf("Запуск %d работников", a.power)
+	conn, err := grpc.NewClient(a.addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		logger.Log.Fatalf("could not connect to grpc server: ", err)
+	}
+	grpcClient := pb.NewOrchestratorServiceClient(conn)
+	a.initWorkers(grpcClient)
 	for i := 1; i <= a.power; i++ {
-		go a.workers[i-1].Start(a.wokertsCtx)
+		go a.workers[i-1].Start(a.workersCtx)
 	}
 }
 
@@ -86,6 +90,7 @@ func (a *Agent) Start() {
 // всех горутин воркеров.
 func (a *Agent) Stop() {
 	a.stopWorkers() //  cancel
+	a.connection.Close()
 	if a.workers != nil {
 		a.wg.Wait()
 	}
