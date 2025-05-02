@@ -15,56 +15,73 @@ import (
 	"github.com/OinkiePie/calc_3/pkg/shutdown"
 )
 
-// Agent представляет собой сервис агента, отвечающий за выполнение задач.
+// Agent представляет собой gRPC агент, который взаимодействует с оркестратором для получения и обработки задач.
 type Agent struct {
-	addr        string
-	errChan     chan error         // Канал для отправки ошибок, возникающих в сервисе.
-	stopWorkers context.CancelFunc // Функция для остановки всех воркеров.
-	connection  *grpc.ClientConn
-	workersCtx  context.Context   // Контекст, используемый воркерами для выполнения задач.
-	workers     []*workers.Worker // Список воркеров, выполняющих задачи.
-	power       int               // Вычислительная мощность агента (количество воркеров).
-	wg          *sync.WaitGroup   // WaitGroup для ожидания завершения всех воркеров.
+	addr        string             // Адрес оркестратора (host:port).
+	errChan     chan error         // Канал для передачи ошибок от воркеров.
+	stopWorkers context.CancelFunc // Функция для отмены контекста воркеров (остановка работы).
+	connection  *grpc.ClientConn   // gRPC подключение к оркестратору.
+	workersCtx  context.Context    // Контекст для управления воркерами.
+	workers     []*workers.Worker  // Срез указателей на воркеры.
+	power       int                // Количество воркеров (вычислительная мощность).
+	wg          *sync.WaitGroup    // WaitGroup для ожидания завершения всех воркеров.
 }
 
-// NewAgent создает новый экземпляр сервиса агента.
+// NewAgent создает и инициализирует новый экземпляр агента.
 //
 // Args:
 //
-//	errChan: chan error - Канал для отправки ошибок, возникающих при работе сервиса.
+//	errChan:  chan error - Канал для передачи ошибок от воркеров.
 //
 // Returns:
 //
-//	*Agent - Указатель на новый экземпляр структуры Agent.
+//	*Agent - Указатель на созданный экземпляр агента.
+//
+//	Функция устанавливает соединение с gRPC-сервером оркестратора,
+//	инициализирует контекст для воркеров, создает и настраивает агента.
+//	При возникновении ошибки подключения к gRPC-серверу, функция завершает работу (fatal)
 func NewAgent(errChan chan error) *Agent {
+	// Формируем адрес оркестратора.
 	addr := fmt.Sprintf("%s:%d",
 		config.Cfg.Services.Orchestrator.ORCHESTRATOR_ADDR,
 		config.Cfg.Services.Orchestrator.ORCHESTRATOR_GRPC_PORT)
 
+	// Устанавливаем gRPC-соединение с оркестратором.
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		logger.Log.Fatalf("could not connect to grpc server: ", err)
+		//  В случае ошибки подключения - фатальная ошибка.
+		logger.Log.Fatalf("Не удалось подключиться к gRPC серверу: %v", err)
 	}
 
+	// Создаем контекст и функцию отмены для управления воркерами.
 	ctx, cancel := context.WithCancel(context.Background())
+	//  Получаем количество воркеров из конфигурации.
 	computingPower := config.Cfg.Services.Agent.COMPUTING_POWER
+	//  Инициализируем слайс воркеров.
 	workersGroup := make([]*workers.Worker, computingPower)
 
+	// Создаем и возвращаем новый агент.
 	a := &Agent{
-		addr:        addr,
-		errChan:     errChan, // Канал для ошибок
-		workersCtx:  ctx,     // Контекст для воркеров
-		stopWorkers: cancel,  // Функция для отмены контекста
-		connection:  conn,
-		workers:     workersGroup,      // Слайс воркеров
-		power:       computingPower,    // Вычислительная мощность
-		wg:          &sync.WaitGroup{}, // WaitGroup для ожидания завершения воркеров
+		addr:        addr,              //  Устанавливаем адрес оркестратора
+		errChan:     errChan,           //  Устанавливаем канал для ошибок
+		workersCtx:  ctx,               //  Устанавливаем контекст воркеров
+		stopWorkers: cancel,            //  Устанавливаем функцию для отмены контекста
+		connection:  conn,              //  Устанавливаем gRPC соединение
+		workers:     workersGroup,      //  Устанавливаем слайс воркеров
+		power:       computingPower,    //  Устанавливаем вычислительную мощность
+		wg:          &sync.WaitGroup{}, //  Устанавливаем WaitGroup для синхронизации
 	}
 	return a
 }
 
-// initWorkers инициализирует воркеров, создавая новые экземпляры Worker
-// и добавляя их в слайс workers.
+// initWorkers инициализирует воркеров агента.
+//
+// Args:
+//
+//	client: pb.OrchestratorServiceClient - gRPC клиент для взаимодействия с оркестратором.
+//
+// Функция создает и инициализирует воркеров агента, используя предоставленный gRPC клиент.
+// Количество воркеров определяется полем power агента.
 func (a *Agent) initWorkers(client pb.OrchestratorServiceClient) {
 	logger.Log.Debugf("Инициализация %d работников", a.power)
 	for i := range a.power {
@@ -72,44 +89,51 @@ func (a *Agent) initWorkers(client pb.OrchestratorServiceClient) {
 	}
 }
 
-// Start запускает воркеров, запуская для каждого из них отдельную горутину.
+// Start запускает работу агента.
+//
+// Функция устанавливает gRPC соединение с оркестратором,
+// инициализирует воркеров и запускает их в отдельных горутинах.
+// Если соединение с gRPC сервисом не удалось, функция завершает работу (fatal).
 func (a *Agent) Start() {
-	conn, err := grpc.NewClient(a.addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		logger.Log.Fatalf("Не удалось подключитсья к gRPC сервису: %v", err)
-	}
-	grpcClient := pb.NewOrchestratorServiceClient(conn)
-	a.initWorkers(grpcClient)
+	grpcClient := pb.NewOrchestratorServiceClient(a.connection) //  Создаем gRPC клиент
+	a.initWorkers(grpcClient)                                   //  Инициализируем воркеров
 	logger.Log.Debugf("Запуск %d работников", a.power)
+
+	//  Запускаем воркеров в горутинах
 	for i := 1; i <= a.power; i++ {
 		go a.workers[i-1].Start(a.workersCtx)
 	}
 }
 
-// Stop останавливает воркеров, отменяя контекст и дожидаясь завершения
-// всех горутин воркеров.
+// Stop останавливает работу агента.
+//
+//	Функция отменяет контекст воркеров, закрывает gRPC соединение и ожидает завершения всех воркеров.
 func (a *Agent) Stop() {
-	a.stopWorkers() //  cancel
-	a.connection.Close()
-	if a.workers != nil {
-		a.wg.Wait()
+	a.stopWorkers()       // Отменяем контекст воркеров (остановка)
+	a.connection.Close()  // Закрываем gRPC соединение
+	if a.workers != nil { // Проверяем, был ли слайс воркеров инициализирован
+		a.wg.Wait() // Ожидаем завершения всех воркеров
 	}
 }
 
-// Запуск сервиса агента
+// main - запуск сервиса агента.
+//
+//	Функция инициализирует конфигурацию и логгер, создает экземпляр агента,
+//	запускает агент в отдельной горутине и ожидает завершения работы.
+//	В случае возникновения ошибки, ошибка передается в errChan и сервис отключается.
 func main() {
-	// Инициализация конфига и логгера
+	// Инициализируем конфигурацию и логгер.
 	initializer.Init()
 
-	errChan := make(chan error, 1)
+	errChan := make(chan error, 1) // Создаем канал для ошибок
 
-	// Запуск сервиса агента в отдельной горутине чтобы можно было поймать завершение
+	// Запускаем сервис агента в отдельной горутине, чтобы можно было поймать завершение.
 	agentService := NewAgent(errChan)
 	go func() {
 		logger.Log.Debugf("Запуск сервиса Агент...")
-		agentService.Start()
+		agentService.Start() //  Запускаем агент
 		logger.Log.Infof("Сервис Агент запущен")
 	}()
 
-	shutdown.WaitForShutdown(errChan, "Агент", agentService)
+	shutdown.WaitForShutdown(errChan, "Агент", agentService) //  Ожидаем завершение работы
 }

@@ -16,30 +16,30 @@ import (
 )
 
 var (
-	errDivisionByZero = errors.New("division by zero not allowed")
-	errFirstNil       = errors.New("first operator cannot be nil")
+	errDivisionByZero = errors.New("деление на ноль")
+	errFirstNil       = errors.New("первый оператор не может быть nil")
 )
 
 // Worker представляет собой рабочего, выполняющего задачи.
 type Worker struct {
 	errChan  chan error                   // Канал для отправки ошибок, возникающих при выполнении задач.
 	workerID int                          // Уникальный идентификатор рабочего.
-	client   pb.OrchestratorServiceClient // API-клиент для получения и отправки задач.
+	client   pb.OrchestratorServiceClient //  Клиент gRPC для получения и отправки задач.
 	wg       *sync.WaitGroup              // WaitGroup для сигнализации о завершении работы.
 }
 
-// NewWorker создает новый экземпляр рабочего.
+// NewWorker создает нового воркера.
 //
 // Args:
 //
-//	workerID: int - Уникальный идентификатор рабочего.
-//	apiClient: *client.APIClient - API-клиент для получения и отправки задач.
-//	wg: *sync.WaitGroup - WaitGroup для сигнализации о завершении работы.
-//	errChan: chan error - Канал для отправки ошибок, возникающих при выполнении задач.
+//	workerID: int - Уникальный идентификатор воркера.
+//	client:   pb.OrchestratorServiceClient - Клиент gRPC для взаимодействия с оркестратором.
+//	wg:       *sync.WaitGroup - Указатель на WaitGroup для синхронизации работы воркеров.
+//	errChan:  chan error - Канал для передачи ошибок из воркеров.
 //
 // Returns:
 //
-//	*Worker: Указатель на новый экземпляр структуры Worker.
+//	*Worker - Указатель на созданный экземпляр воркера.
 func NewWorker(workerID int, client pb.OrchestratorServiceClient, wg *sync.WaitGroup, errChan chan error) *Worker {
 	return &Worker{
 		workerID: workerID,
@@ -49,60 +49,56 @@ func NewWorker(workerID int, client pb.OrchestratorServiceClient, wg *sync.WaitG
 	}
 }
 
-// Start запускает рабочего для выполнения задач, получаемых от API.
+// Start запускает воркер и начинает получать и обрабатывать задачи.
 //
 // Args:
 //
-//	ctx: context.Context - Контекст, используемый для отмены работы воркера.
+//	ctx context.Context - Контекст для управления жизненным циклом воркера.  При отмене контекста,
+//	воркер завершает свою работу
 //
-// Описание:
-//
-//	Воркер постоянно пытается получить задачу от API. Если задача получена,
-//	воркер запускает вычисление в отдельной горутине с таймаутом, указанным
-//	в задаче. Результат вычисления (или ошибка) отправляется обратно в API.
-//	Воркер завершает работу при отмене контекста.
-//
-// Обработка ошибок:
-//   - Если нет задач для выполнения, воркер ждет AGENT_REPEAT секунды и повторяет попытку.
-//   - Если не удается получить задачу, воркер ждет AGENT_REPEAT_ERR секунд и повторяет попытку.
-//   - Если полученная задача невыполнима, в API отправляется сообщение об ошибке.
-//   - Если во время вычисления происходит паника, она перехватывается, логируется и отправляется в канал ошибок.
-//   - Если при отправке результата возникает ошибка, воркер ждет 5 секунд и повторяет попытку.
+// Воркер постоянно запрашивает задачи у сервиса, выполняет их и отправляет результаты.
+// Функция завершается, когда контекст ctx отменяется.
 func (w *Worker) Start(ctx context.Context) {
 	w.wg.Add(1)
 	defer w.wg.Done()
-	prevErr := errors.New("")
-	waiting := true
+
+	prevErr := errors.New("") //  Сохраняем предыдущую ошибку (для логирования)
+	waiting := true           //  Флаг, указывающий, что воркер ждет задачи.
 
 	for {
 		select {
 		case <-ctx.Done():
+			// Контекст отменен - завершаем работу воркера.
 			logger.Log.Debugf("Рабочий %d отключен", w.workerID)
 			return
 		default:
-			resp, err := w.client.GetTask(context.TODO(), &pb.Empty{})
+			//  Основной цикл обработки задач.
+			resp, err := w.client.GetTask(context.TODO(), &pb.Empty{}) // Запрашиваем задачу
+
 			if err != nil {
-				// Дабы избежать бесконечно спама в консоль сверяем с предыдущей ошибкой
+				// Обработка ошибок при получении задачи:
 				if prevErr.Error() != err.Error() {
+					// Логируем только новые ошибки (чтобы не засорять логи)
 					logger.Log.Errorf("Рабочий %d: Ошибка при получении задачи: %v. Повторные запросы каждые %d мс.",
 						w.workerID, err, config.Cfg.Services.Agent.AGENT_REPEAT_ERR)
 				}
-				prevErr = err
+				prevErr = err // Сохраняем текущую ошибку для сравнения со следующей
 				time.Sleep(time.Duration(config.Cfg.Services.Agent.AGENT_REPEAT_ERR) * time.Millisecond)
-				continue
+				continue // Переходим к следующей итерации цикла (повторный запрос)
 			}
 
 			if resp.GetId() == 0 {
-				// Дабы избежать бесконечно спама в консоль проверяем был ли уже лог об ожидании
+				// Нет доступных задач:
 				if waiting {
+					// Логируем только один раз, когда воркер переходит в состояние ожидания
 					logger.Log.Debugf("Рабочий %d: Нет доступных задач. Повторные запросы каждые %d мс.",
 						w.workerID, config.Cfg.Services.Agent.AGENT_REPEAT)
-					waiting = false
+					waiting = false //  Устанавливаем флаг, что мы уже логировали состояние ожидания
 				}
 				time.Sleep(time.Duration(config.Cfg.Services.Agent.AGENT_REPEAT) * time.Millisecond)
-				continue
+				continue // Переходим к следующей итерации цикла (повторный запрос)
 			}
-
+			// Получена задача:
 			task := &models.TaskResponse{
 				ID:         resp.GetId(),
 				Args:       convertArgs(resp.GetArgs()),
@@ -110,47 +106,49 @@ func (w *Worker) Start(ctx context.Context) {
 				Expression: resp.GetExpression(),
 				Error:      resp.GetError(),
 			}
-
 			logger.Log.Debugf("Рабочий %d: Получена задача %d", w.workerID, task.ID)
-			waiting = true
-			//  Создаем контекст с таймаутом
+			waiting = true //  Устанавливаем флаг, что воркер снова готов к выполнению задач
+
+			//  Устанавливаем таймаут на выполнение задачи
 			taskCtx, cancel := context.WithTimeout(context.Background(), calcOperationTime(task.Operation))
 			defer cancel()
 
-			//  Запускаем вычисление в горутине
-			resultChan := make(chan float64, 1)
-			errorChan := make(chan error, 1)
+			// Запускаем вычисление в горутине
+			resultChan := make(chan float64, 1) // Канал для результата
+			errorChan := make(chan error, 1)    // Канал для ошибок
 
 			go func(t *models.TaskResponse) {
+				//  Обеспечиваем, что если возникла паника, ее можно было перехватить (recover)
 				defer func() {
 					if r := recover(); r != nil {
-						close(resultChan)
+						close(resultChan) // Закрываем каналы, если произошла паника
 						close(errorChan)
-						w.errChan <- fmt.Errorf("ошибка во время вычисления: %v", r)
+						w.errChan <- fmt.Errorf("ошибка во время вычисления: %v", r) // Отправляем ошибку в канал ошибок
 					}
 				}()
 
-				result, err := Calculate(t)
+				result, err := Calculate(t) // Вычисляем задачу
 				if err != nil {
-					errorChan <- err
+					errorChan <- err // Отправляем ошибку в канал ошибок
 					return
 				}
-				resultChan <- result
+				resultChan <- result // Отправляем результат в канал
 			}(task)
 
-			// Ожидаем результат и таймаут
-			var result float64
+			var result float64 // Переменная для хранения результата
 			select {
 			case result = <-resultChan:
-				<-taskCtx.Done()
+				// Успешное завершение вычисления
+				<-taskCtx.Done() //  Ждем, пока истечет таймаут (если задача выполнилась слишком быстро)
 				logger.Log.Debugf("Рабочий %d: Задача %d успешно выполнена", w.workerID, task.ID)
 			case err = <-errorChan:
+				//  Ошибка при вычислении
 				logger.Log.Debugf("Рабочий %d: Задача %d невыполнима: %v", w.workerID, task.ID, err)
-				// Перезаписываем поле Error чтобы обработчик понял что выражение невыполнимо
-				task.Error = fmt.Sprintf("IMPOSSIBLE: %v", err)
-				result = 0
+				task.Error = err.Error() // Устанавливаем сообщение об ошибке
+				result = 0               // Устанавливаем результат в 0 при ошибке
 			}
 
+			//  Проверка на значения +Inf и -Inf
 			if math.IsInf(result, 1) {
 				result = 0
 				task.Error = "Результат - +Inf"
@@ -161,7 +159,7 @@ func (w *Worker) Start(ctx context.Context) {
 				task.Error = "Результат - -Inf"
 			}
 
-			// Отправляем результат (даже если был таймаут)
+			// Формируем сообщение с результатом для отправки
 			completedTask := &pb.TaskCompleted{
 				Expression: task.Expression,
 				Id:         task.ID,
@@ -169,10 +167,12 @@ func (w *Worker) Start(ctx context.Context) {
 				Error:      task.Error,
 			}
 
+			//  Отправляем результат в оркестратор
 			_, err = w.client.SubmitResult(context.TODO(), completedTask)
 			if err != nil {
+				// Обработка ошибок при отправке результата
 				logger.Log.Errorf("Рабочий %d: Ошибка при отправлении задачи %d: %v", w.workerID, task.ID, err)
-				time.Sleep(5 * time.Second)
+				time.Sleep(time.Duration(config.Cfg.Services.Agent.AGENT_REPEAT_ERR) * time.Second) //  Задержка при ошибке отправки
 			} else {
 				logger.Log.Debugf("Рабочий %d: Задача %d успешно отправлена", w.workerID, task.ID)
 			}
@@ -181,7 +181,6 @@ func (w *Worker) Start(ctx context.Context) {
 }
 
 // Calculate выполняет математическую операцию над двумя аргументами, указанными в задаче.
-// Поддерживаемые операции: сложение, вычитание, умножение, деление и возведение в степень.
 // Если второй аргумент равен nil, выполняется унарный минус для первого аргумента.
 //
 // Args:
@@ -198,11 +197,11 @@ func Calculate(task *models.TaskResponse) (float64, error) {
 	// Nil попадает в операнд только если оператором является унарный минус.
 	// При этом число которое необходимо обратить всегда первый операнд.
 	if task.Args[0] == nil {
-		// Перовый оператор никогода не может быть nil
+		// Первый оператор никогда не может быть nil
 		return 0, errFirstNil
 	}
 	arg1 = *task.Args[0]
-	// Если 2й операнд - nil, то операнд всегда унарный минус
+	// Если 2-й операнд - nil, то операнд всегда унарный минус
 	if task.Args[1] == nil {
 		return -*task.Args[0], nil
 	}
@@ -237,7 +236,7 @@ func Calculate(task *models.TaskResponse) (float64, error) {
 //
 // Args:
 //
-//	operation: string - Строковый идентификатор операции (например, "+", "-", "*")
+//	operation: string - Строковый идентификатор операции
 //
 // Returns:
 //
@@ -272,6 +271,15 @@ func calcOperationTime(operation string) time.Duration {
 	return time.Duration(timeMs) * time.Millisecond
 }
 
+// convertArgs преобразует срез указателей на  pb.WrappedDouble в срез указателей на float64.
+//
+// Args:
+//
+//	pbArgs: []*pb.WrappedDouble - Срез указателей на WrappedDouble из proto-файла.
+//
+// Returns:
+//
+//	[]*float64 - Срез указателей на float64, соответствующий переданному pbArgs.
 func convertArgs(pbArgs []*pb.WrappedDouble) []*float64 {
 	goArgs := make([]*float64, len(pbArgs))
 	for i, arg := range pbArgs {

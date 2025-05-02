@@ -21,7 +21,7 @@ type UserManagerInterface interface {
 	//	int - HTTP статус код:
 	//		- ошибки репозиториев
 	//		- 200 OK при успешном выполнении
-	//	    - 500 Internal Server Error при ошибках
+	//		- 500 Internal Server Error при ошибках
 	Register(ctx context.Context, login, password string) (int64, error, int)
 
 	// Login выполняет аутентификацию пользователя и генерирует JWT-токен.
@@ -40,7 +40,7 @@ type UserManagerInterface interface {
 	//	int - HTTP статус код:
 	//		- ошибки репозиториев
 	//		- 200 OK при успешном выполнении
-	//	    - 500 Internal Server Error при ошибках
+	//		- 500 Internal Server Error при ошибках
 	Login(ctx context.Context, login, password string) (string, int64, error, int)
 
 	Logout(ctx context.Context, jti string) (error, int)
@@ -60,9 +60,22 @@ type UserManagerInterface interface {
 	//	int - HTTP статус код:
 	//		- ошибки репозиториев
 	//		- 200 OK при успешном выполнении
-	//	    - 500 Internal Server Error при ошибках
+	//		- 500 Internal Server Error при ошибках
 	Delete(ctx context.Context, login, password string) (int64, error, int)
 
+	// SessionExists удаляет учетную запись пользователя после проверки пароля.
+	//
+	// Args:
+	//
+	//	jti: string - Идентификатор сессии
+	//
+	// Returns:
+	//
+	//	error - Ошибка выполнения
+	//	int - HTTP статус код:
+	//		- ошибки репозиториев
+	//		- 200 OK при успешном выполнении
+	//		- 500 Internal Server Error при ошибках
 	SessionExists(ctx context.Context, jti string) (error, bool)
 }
 
@@ -82,7 +95,7 @@ type ExpressionManagerInterface interface {
 	//	int - HTTP статус код:
 	//		- ошибки репозиториев
 	//		- 200 OK при успешном выполнении
-	//	    - 500 Internal Server Error при ошибках
+	//		- 500 Internal Server Error при ошибках
 	AddExpression(ctx context.Context, expressionString string, claims int64) (int64, error, int)
 
 	// ReadExpressions получает все выражения пользователя.
@@ -99,7 +112,7 @@ type ExpressionManagerInterface interface {
 	//	int - HTTP статус код:
 	//		- ошибки репозиториев
 	//		- 200 OK при успешном выполнении
-	//	    - 500 Internal Server Error при ошибках
+	//		- 500 Internal Server Error при ошибках
 	ReadExpressions(ctx context.Context, id int64) ([]*models.Expression, error, int)
 
 	// ReadExpression получает выражение по его ID.
@@ -134,7 +147,7 @@ type ExpressionManagerInterface interface {
 	//		- ошибки репозиториев
 	//		- 200 OK при успешном получении
 	//		- 404 Not Found если задач нет
-	//	    - 500 Internal Server Error при ошибках
+	//		- 500 Internal Server Error при ошибках
 	ReadTask(ctx context.Context) (*models.Task, error, int)
 
 	// CompleteTask завершает выполнение задачи и обновляет связанные данные.
@@ -151,6 +164,6 @@ type ExpressionManagerInterface interface {
 	//	int - HTTP статус код:
 	//		- ошибки репозиториев
 	//		- 200 OK при успешном выполнении
-	//	    - 500 Internal Server Error при ошибках
+	//		- 500 Internal Server Error при ошибках
 	CompleteTask(ctx context.Context, taskCompleted *models.TaskCompleted) (error, int)
 }

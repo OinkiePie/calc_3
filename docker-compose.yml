@@ -19,12 +19,9 @@ services:
       - '50051:50051'
     networks:
       - back
-      - front
     environment:
       - ADDR_ORCHESTRATOR=0.0.0.0
       - PORT_ORCHESTRATOR=8080
 networks:
-  front:
-    driver: bridge
   back:
     driver: bridge

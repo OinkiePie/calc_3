@@ -1,4 +1,4 @@
-package repositories
+package repositories_expressions
 
 import (
 	"context"
@@ -17,11 +17,11 @@ type TaskDepsRepository struct {
 //
 // Args:
 //
-//	db: *sql.DB - Подключение к базе данных
+//	db: *sql.DB - Подключение к базе данных.
 //
 // Returns:
 //
-//	*TaskDepsRepository - Новый экземпляр репозитория
+//	*TaskDepsRepository - Новый экземпляр репозитория.
 func NewTaskDepsRepository(db *sql.DB) *TaskDepsRepository {
 	return &TaskDepsRepository{db: db}
 }
@@ -30,13 +30,13 @@ func NewTaskDepsRepository(db *sql.DB) *TaskDepsRepository {
 //
 // Args:
 //
-//	ctx: context.Context - Контекст выполнения запроса
-//	tx: *sql.Tx - Транзакция базы данных
-//	task: *models.Task - Задача, содержащая зависимости для сохранения
+//	ctx: context.Context - Контекст выполнения запроса.
+//	tx: *sql.Tx - Транзакция базы данных.
+//	task: *models.Task - Задача, содержащая зависимости для сохранения.
 //
 // Returns:
 //
-//	error - Ошибка выполнения операции
+//	error - Ошибка выполнения операции.
 func (r *TaskDepsRepository) CreateTaskDeps(ctx context.Context, tx *sql.Tx, task *models.Task) error {
 	query := `
 	INSERT INTO task_deps
@@ -55,14 +55,14 @@ func (r *TaskDepsRepository) CreateTaskDeps(ctx context.Context, tx *sql.Tx, tas
 //
 // Args:
 //
-//	ctx: context.Context - Контекст выполнения запроса
-//	tx: *sql.Tx - Транзакция базы данных
-//	id: int64 - Идентификатор задачи
+//	ctx: context.Context - Контекст выполнения запроса.
+//	tx: *sql.Tx - Транзакция базы данных.
+//	id: int64 - Идентификатор задачи.
 //
 // Returns:
 //
-//	[]int64 - Список идентификаторов зависимых задач
-//	error - Ошибка выполнения операции
+//	[]int64 - Список идентификаторов зависимых задач.
+//	error - Ошибка выполнения операции.
 func (r *TaskDepsRepository) ReadTaskDeps(ctx context.Context, tx *sql.Tx, id int64) ([]int64, error) {
 	deps := make([]int64, 2)
 	query := `
@@ -83,14 +83,14 @@ func (r *TaskDepsRepository) ReadTaskDeps(ctx context.Context, tx *sql.Tx, id in
 //
 // Args:
 //
-//	ctx: context.Context - Контекст выполнения запроса
-//	tx: *sql.Tx - Транзакция базы данных
-//	id: int64 - Идентификатор задачи
-//	deps: []int64 - Новые зависимости задачи
+//	ctx: context.Context - Контекст выполнения запроса.
+//	tx: *sql.Tx - Транзакция базы данных.
+//	id: int64 - Идентификатор задачи.
+//	deps: []int64 - Новые зависимости задачи.
 //
 // Returns:
 //
-//	error - Ошибка выполнения операции
+//	error - Ошибка выполнения операции.
 func (r *TaskDepsRepository) UpdateTaskDeps(ctx context.Context, tx *sql.Tx, id int64, deps []int64) error {
 	query := `
     UPDATE

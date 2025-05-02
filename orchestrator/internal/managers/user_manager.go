@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/repositories_users"
 	"github.com/OinkiePie/calc_3/pkg/jwt"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
@@ -14,9 +14,9 @@ import (
 // UserManager предоставляет методы для управления пользователями, включая регистрацию, аутентификацию и удаление.
 type UserManager struct {
 	db          *sql.DB // Подключение к базе данных
-	sessionRepo *repositories.SessionRepository
-	userRepo    *repositories.UserRepository // Репозиторий для работы с данными пользователей
-	jwtManager  *jwt.JWTManager              // Менеджер для работы с JWT-токенами
+	sessionRepo *repositories_users.SessionRepository
+	userRepo    *repositories_users.UserRepository // Репозиторий для работы с данными пользователей
+	jwtManager  *jwt.JWTManager                    // Менеджер для работы с JWT-токенами
 }
 
 // NewUserManager создает новый экземпляр UserManager.
@@ -31,8 +31,8 @@ type UserManager struct {
 //	*UserManager - Новый экземпляр менеджера пользователей
 func NewUserManager(
 	db *sql.DB,
-	sessionRepo *repositories.SessionRepository,
-	userRepo *repositories.UserRepository,
+	sessionRepo *repositories_users.SessionRepository,
+	userRepo *repositories_users.UserRepository,
 	jwtManager *jwt.JWTManager,
 ) *UserManager {
 	return &UserManager{

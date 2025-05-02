@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	repositories2 "github.com/OinkiePie/calc_3/orchestrator/internal/repositories"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/repositories_expressions"
 	"github.com/OinkiePie/calc_3/orchestrator/internal/task_splitter"
 	"github.com/OinkiePie/calc_3/pkg/models"
 	"net/http"
@@ -12,9 +12,9 @@ import (
 
 // ExpressionManager предоставляет методы для управления математическими выражениями.
 type ExpressionManager struct {
-	db       *sql.DB                              // Подключение к базе данных
-	exprRepo *repositories2.ExpressionsRepository // Репозиторий выражений
-	taskRepo *repositories2.TasksRepository       // Репозиторий задач
+	db       *sql.DB                                         // Подключение к базе данных
+	exprRepo *repositories_expressions.ExpressionsRepository // Репозиторий выражений
+	taskRepo *repositories_expressions.TasksRepository       // Репозиторий задач
 }
 
 // NewExpressionManager создает новый экземпляр менеджера выражений.
@@ -30,8 +30,8 @@ type ExpressionManager struct {
 //	*ExpressionManager - Новый экземпляр менеджера
 func NewExpressionManager(
 	db *sql.DB,
-	exprRepo *repositories2.ExpressionsRepository,
-	taskRepo *repositories2.TasksRepository,
+	exprRepo *repositories_expressions.ExpressionsRepository,
+	taskRepo *repositories_expressions.TasksRepository,
 ) *ExpressionManager {
 	return &ExpressionManager{
 		db:       db,

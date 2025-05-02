@@ -21,11 +21,10 @@ var (
 )
 
 // ParseExpression разбирает математическое выражение и преобразует его в набор вычислительных задач.
-// Выполняет полный цикл обработки: нормализация, преобразование в RPN и создание задач.
 //
 // Args:
 //
-//	expression: string - Математическое выражение в инфиксной нотации (например, "2+3*4")
+//	expression: string - Математическое выражение в инфиксной нотации
 //
 // Returns:
 //
@@ -52,8 +51,7 @@ func ParseExpression(expression string) ([]*models.Task, error) {
 	return tasks, nil
 }
 
-// Precedence определяет приоритет оператора для правильной вложенности при разбиении на задачи.
-// Более высокий приоритет означает, что оператор должен быть выполнен раньше.
+// precedence определяет приоритет оператора для правильной вложенности при разбиении на задачи.
 //
 // Args:
 //
@@ -237,8 +235,7 @@ func isNumber(token string) bool {
 	return err == nil
 }
 
-// rpnToTasks преобразует выражение в обратной польской нотации (RPN) в набор задач для вычисления.
-// Использует стековый алгоритм для построения графа зависимостей между операциями.
+// rpnToTasks преобразует выражение в обратной польской записи (RPN) в список задач для вычисления.// Использует стековый алгоритм для построения графа зависимостей между операциями.
 //
 // Args:
 //
@@ -251,78 +248,96 @@ func isNumber(token string) bool {
 //	    - errNotEnoughOperands: недостаточно операндов для операции
 //	    - errUnaryMinus: отсутствует операнд для унарного минуса
 //	    - errRPN: неверный формат RPN или числового значения
+//
+// Функция использует стек для отслеживания операндов и операций.
+// При обнаружении оператора, функция извлекает два операнда (или один для унарного минуса) из стека,
+// создает новую задачу с этим оператором и зависимостями, и помещает задачу в стек.
+// Числа преобразуются в задачи с предопределенным статусом "completed" и результатом.
+// Функция возвращает nil и ошибку, если входная строка RPN некорректна.
 func rpnToTasks(rpn []string) ([]*models.Task, error) {
-	var tasks []*models.Task
-	var stack []*models.Task
-	var indexer int
+	var tasks []*models.Task // Срез для хранения созданных задач
+	var stack []*models.Task // Стек для хранения операндов и промежуточных результатов
+	var indexer int          // Счетчик для индексации зависимостей (для удобства)
 
+	// Вспомогательная функция для создания новой задачи
 	newTask := func(operator string) models.Task {
 		return models.Task{
-			Operation:         operator,
-			Args:              make([]*float64, 2),
-			Dependencies:      []int64{-1, -1},
-			DependencyIndexes: make([]int, 2),
+			Operation:         operator,            // Операция
+			Args:              make([]*float64, 2), //  Аргументы
+			Dependencies:      []int64{-1, -1},     //  ID зависимостей
+			DependencyIndexes: make([]int, 2),      //  Индексы зависимостей в срезе tasks
 		}
 	}
 
+	//  Цикл по токенам RPN
 	for _, token := range rpn {
 		switch token {
-		case operators.OpAdd, operators.OpSubtract, operators.OpMultiply, operators.OpDivide:
+		case operators.OpAdd, operators.OpSubtract, operators.OpMultiply, operators.OpDivide, operators.OpPower:
+			//  Обработка бинарных операторов (+, -, *, /)
 			if len(stack) < 2 {
+				//  Недостаточно операндов на стеке
 				return nil, errNotEnoughOperands
 			}
 
+			//  Извлекаем операнды из стека
 			operand2 := stack[len(stack)-1]
 			operand1 := stack[len(stack)-2]
-			stack = stack[:len(stack)-2]
+			stack = stack[:len(stack)-2] //  Удаляем операнды из стека
 
-			task := newTask(token)
+			task := newTask(token) // Создаем новую задачу для оператора
 
+			//  Заполняем аргументы задачи (либо значениями, либо индексами зависимостей)
 			if operand1.Result != nil {
 				val := *operand1.Result
-				task.Args[0] = &val
+				task.Args[0] = &val // Используем значение
 			} else {
-				task.DependencyIndexes[0] = indexer
+				task.DependencyIndexes[0] = indexer //  Устанавливаем индекс зависимости
 			}
 
 			if operand2.Result != nil {
 				val := *operand2.Result
-				task.Args[1] = &val
+				task.Args[1] = &val //  Используем значение
 			} else {
-				task.DependencyIndexes[1] = indexer
+				task.DependencyIndexes[1] = indexer //  Устанавливаем индекс зависимости
 			}
 
-			indexer++
-			tasks = append(tasks, &task)
-			stack = append(stack, tasks[len(tasks)-1])
+			indexer++                                  //  Увеличиваем счетчик
+			tasks = append(tasks, &task)               //  Добавляем задачу в срез
+			stack = append(stack, tasks[len(tasks)-1]) //  Помещаем задачу в стек
 
 		case operators.OpUnaryMinus:
+			//  Обработка унарного минуса
 			if len(stack) < 1 {
+				//  Недостаточно операндов на стеке
 				return nil, errUnaryMinus
 			}
 
 			operand := stack[len(stack)-1]
-			stack = stack[:len(stack)-1]
+			stack = stack[:len(stack)-1] //  Удаляем операнд из стека
 
-			task := newTask(operators.OpUnaryMinus)
+			task := newTask(operators.OpUnaryMinus) //  Создаем новую задачу для оператора
 
+			//  Заполняем аргументы задачи (либо значениями, либо индексами зависимостей)
 			if operand.Result != nil {
 				val := *operand.Result
-				task.Args[0] = &val
+				task.Args[0] = &val //  Используем значение
 			} else {
-				task.DependencyIndexes[0] = indexer
+				task.DependencyIndexes[0] = indexer // Устанавливаем индекс зависимости
 			}
 
-			indexer++
-			tasks = append(tasks, &task)
-			stack = append(stack, tasks[len(tasks)-1])
+			indexer++                                  //  Увеличиваем счетчик
+			tasks = append(tasks, &task)               //  Добавляем задачу в срез
+			stack = append(stack, tasks[len(tasks)-1]) //  Помещаем задачу в стек
 
 		default:
+			// Обработка чисел (операндов)
 			num, err := strconv.ParseFloat(token, 64)
 			if err != nil {
+				//  Ошибка при преобразовании токена в число
 				return nil, errRPN
 			}
 
+			//  Создаем задачу для числа со статусом "completed"
 			stack = append(stack, &models.Task{
 				Status: "completed",
 				Result: &num,
@@ -330,9 +345,10 @@ func rpnToTasks(rpn []string) ([]*models.Task, error) {
 		}
 	}
 
+	//  Проверка, что в стеке остался только один элемент (корень выражения)
 	if len(stack) != 1 {
 		return nil, errRPN
 	}
 
-	return tasks, nil
+	return tasks, nil // Возвращаем созданные задачи
 }

@@ -43,7 +43,6 @@ func (h *Handlers) RegisterUserHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 
 	logger.Log.Debugf("Пользователь №%d (%s) создан", id, req.Login)
-
 }
 
 func (h *Handlers) LoginUserHandler(w http.ResponseWriter, r *http.Request) {

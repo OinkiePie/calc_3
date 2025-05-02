@@ -1,4 +1,4 @@
-package repositories
+package repositories_users
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/OinkiePie/calc_3/pkg/models"
 	"github.com/mattn/go-sqlite3"
-	_ "github.com/mattn/go-sqlite3"
 	"net/http"
 )
 
@@ -20,11 +19,11 @@ type UserRepository struct {
 //
 // Args:
 //
-//	db: *sql.DB - Подключение к базе данных
+//	db: *sql.DB - Подключение к базе данных.
 //
 // Returns:
 //
-//	*UserRepository - Новый экземпляр репозитория пользователей
+//	*UserRepository - Новый экземпляр репозитория пользователей.
 func NewUserRepository(db *sql.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
@@ -77,13 +76,13 @@ func (r *UserRepository) CreateUser(ctx context.Context, login, pas string) (*mo
 //
 // Args:
 //
-//	ctx: context.Context - Контекст выполнения запроса
-//	login: string - Логин пользователя для поиска
+//	ctx: context.Context - Контекст выполнения запроса.
+//	login: string - Логин пользователя для поиска.
 //
 // Returns:
 //
-//	*models.User - Найденный пользователь
-//	error - Ошибка выполнения запроса
+//	*models.User - Найденный пользователь.
+//	error - Ошибка выполнения запроса.
 //	int - HTTP-статус код:
 //		- 200 OK при успешном поиске
 //		- 401 Unauthorized если пользователь не найден
@@ -103,7 +102,7 @@ func (r *UserRepository) ReadUserByLogin(ctx context.Context, login string) (*mo
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errors.New("пользователь не найден"), http.StatusUnauthorized
 		}
-		return nil, fmt.Errorf("не удалось поулчить пользователя: %w", err), http.StatusInternalServerError
+		return nil, fmt.Errorf("не удалось получить пользователя: %w", err), http.StatusInternalServerError
 	}
 	return &user, nil, http.StatusOK
 }
@@ -112,8 +111,8 @@ func (r *UserRepository) ReadUserByLogin(ctx context.Context, login string) (*mo
 //
 // Args:
 //
-//	ctx: context.Context - Контекст выполнения запроса
-//	id: int64 - Идентификатор пользователя для удаления
+//	ctx: context.Context - Контекст выполнения запроса.
+//	id: int64 - Идентификатор пользователя для удаления.
 //
 // Returns:
 //

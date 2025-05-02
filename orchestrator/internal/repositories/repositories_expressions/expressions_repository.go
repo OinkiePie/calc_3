@@ -1,10 +1,11 @@
-package repositories
+package repositories_expressions
 
 import (
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories"
 	"github.com/OinkiePie/calc_3/pkg/models"
 	_ "github.com/mattn/go-sqlite3"
 	"net/http"
@@ -12,21 +13,21 @@ import (
 
 // ExpressionsRepository предоставляет методы для работы с выражениями в базе данных.
 type ExpressionsRepository struct {
-	db       *sql.DB          // Подключение к базе данных
-	taskRepo *TasksRepository // Репозиторий задач
+	db       *sql.DB                               // Подключение к базе данных
+	taskRepo repositories.TasksRepositoryInterface // Репозиторий задач
 }
 
 // NewExpressionsRepository создает новый экземпляр репозитория выражений.
 //
 // Args:
 //
-//	db: *sql.DB - Подключение к базе данных
-//	tr: *TasksRepository - Репозиторий задач
+//	db: *sql.DB - Подключение к базе данных.
+//	tr: *TasksRepository - Репозиторий задач.
 //
 // Returns:
 //
-//	*ExpressionsRepository - Новый экземпляр репозитория
-func NewExpressionsRepository(db *sql.DB, tr *TasksRepository) *ExpressionsRepository {
+//	*ExpressionsRepository - Новый экземпляр репозитория.
+func NewExpressionsRepository(db *sql.DB, tr repositories.TasksRepositoryInterface) *ExpressionsRepository {
 	return &ExpressionsRepository{db: db, taskRepo: tr}
 }
 
@@ -34,15 +35,15 @@ func NewExpressionsRepository(db *sql.DB, tr *TasksRepository) *ExpressionsRepos
 //
 // Args:
 //
-//	ctx: context.Context - Контекст выполнения запроса
-//	tx: *sql.Tx - Транзакция базы данных
-//	expr: *models.Expression - Выражение для создания
+//	ctx: context.Context - Контекст выполнения запроса.
+//	tx: *sql.Tx - Транзакция базы данных.
+//	expr: *models.Expression - Выражение для создания.
 //
 // Returns:
 //
-//	int64 - ID созданного выражения
-//	error - Ошибка выполнения операции
-//	int - HTTP статус код:
+//	int64 - ID созданного выражения.
+//	error - Ошибка выполнения операции.
+//	int - HTTP-статус код:
 //	    - 200 OK при успешном создании
 //	    - 500 Internal Server Error при ошибках
 func (r *ExpressionsRepository) CreateExpression(ctx context.Context, tx *sql.Tx, expr *models.Expression) (int64, error, int) {
@@ -99,15 +100,15 @@ func (r *ExpressionsRepository) CreateExpression(ctx context.Context, tx *sql.Tx
 //
 // Args:
 //
-//	ctx: context.Context - Контекст выполнения запроса
-//	tx: *sql.Tx - Транзакция базы данных
-//	id: int64 - ID выражения
+//	ctx: context.Context - Контекст выполнения запроса.
+//	tx: *sql.Tx - Транзакция базы данных.
+//	id: int64 - ID выражения.
 //
 // Returns:
 //
-//	*models.Expression - Найденное выражение
-//	error - Ошибка выполнения операции
-//	int - HTTP статус код:
+//	*models.Expression - Найденное выражение.
+//	error - Ошибка выполнения операции.
+//	int - HTTP-статус код:
 //	    - 200 OK при успешном получении
 //	    - 404 Not Found если выражение не найдено
 //	    - 500 Internal Server Error при ошибках
@@ -150,14 +151,14 @@ func (r *ExpressionsRepository) ReadExpressionByID(ctx context.Context, tx *sql.
 //
 // Args:
 //
-//	ctx: context.Context - Контекст выполнения запроса
-//	tx: *sql.Tx - Транзакция базы данных
-//	userID: int64 - ID пользователя
+//	ctx: context.Context - Контекст выполнения запроса.
+//	tx: *sql.Tx - Транзакция базы данных.
+//	userID: int64 - ID пользователя.
 //
 // Returns:
 //
-//	[]*models.Expression - Список выражений пользователя
-//	error - Ошибка выполнения операции
+//	[]*models.Expression - Список выражений пользователя.
+//	error - Ошибка выполнения операции.
 //	int - HTTP статус код:
 //	    - 200 OK при успешном получении
 //	    - 404 Not Found если выражения не найдены
@@ -217,16 +218,17 @@ func (r *ExpressionsRepository) ReadExpressionsByUserID(ctx context.Context, tx 
 //
 // Args:
 //
-//	ctx: context.Context - Контекст выполнения запроса
-//	tx: *sql.Tx - Транзакция базы данных (не используется, создается новая)
-//	id: int64 - ID выражения
+//	ctx: context.Context - Контекст выполнения запроса.
+//	tx: *sql.Tx - Транзакция базы данных (не используется, создается новая).
+//	id: int64 - ID выражения.
 //
 // Returns:
 //
-//	[]*models.Task - Список задач выражения
-//	error - Ошибка выполнения операции
+//	[]*models.Task - Список задач выражения.
+//	error - Ошибка выполнения операции.
 //	int - HTTP статус код:
 //	    - 200 OK при успешном получении
+//		- 404 Not Found если задачи не найдены
 //	    - 500 Internal Server Error при ошибках
 func (r *ExpressionsRepository) ReadExpressionTasks(ctx context.Context, tx *sql.Tx, id int64) ([]*models.Task, error, int) {
 	expressions, err, code := r.taskRepo.ReadTasksByExpressionID(ctx, tx, id)
@@ -240,14 +242,14 @@ func (r *ExpressionsRepository) ReadExpressionTasks(ctx context.Context, tx *sql
 //
 // Args:
 //
-//	ctx: context.Context - Контекст выполнения запроса
-//	tx: *sql.Tx - Транзакция базы данных
-//	id: int64 - ID выражения
-//	status: string - Новый статус
+//	ctx: context.Context - Контекст выполнения запроса.
+//	tx: *sql.Tx - Транзакция базы данных.
+//	id: int64 - ID выражения.
+//	status: string - Новый статус.
 //
 // Returns:
 //
-//	error - Ошибка выполнения операции
+//	error - Ошибка выполнения операции.
 //	int - HTTP статус код:
 //	    - 200 OK при успешном обновлении
 //	    - 500 Internal Server Error при ошибках
@@ -271,14 +273,14 @@ func (r *ExpressionsRepository) UpdateExpressionStatus(ctx context.Context, tx *
 //
 // Args:
 //
-//	ctx: context.Context - Контекст выполнения запроса
-//	tx: *sql.Tx - Транзакция базы данных
-//	id: int64 - ID выражения
-//	errContent: string - Текст ошибки
+//	ctx: context.Context - Контекст выполнения запроса.
+//	tx: *sql.Tx - Транзакция базы данных.
+//	id: int64 - ID выражения.
+//	errContent: string - Текст ошибки.
 //
 // Returns:
 //
-//	error - Ошибка выполнения операции
+//	error - Ошибка выполнения операции.
 //	int - HTTP статус код:
 //	    - 200 OK при успешном обновлении
 //	    - 500 Internal Server Error при ошибках
@@ -302,10 +304,10 @@ func (r *ExpressionsRepository) UpdateExpressionError(ctx context.Context, tx *s
 //
 // Args:
 //
-//	ctx: context.Context - Контекст выполнения запроса
-//	tx: *sql.Tx - Транзакция базы данных
-//	id: int64 - ID выражения
-//	result: float64 - Результат вычисления
+//	ctx: context.Context - Контекст выполнения запроса.
+//	tx: *sql.Tx - Транзакция базы данных.
+//	id: int64 - ID выражения.
+//	result: float64 - Результат вычисления.
 //
 // Returns:
 //

@@ -4,6 +4,8 @@ import (
 	"context"
 	"github.com/OinkiePie/calc_3/orchestrator/internal/managers"
 	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/repositories_expressions"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/repositories_users"
 	"github.com/OinkiePie/calc_3/pkg/database"
 	"github.com/OinkiePie/calc_3/pkg/jwt"
 	"github.com/OinkiePie/calc_3/pkg/logger"
@@ -50,14 +52,14 @@ func NewProviders(ctx context.Context, dbPath string, jwtKey string) (*Providers
 
 	jwtManager := jwt.NewJWTManager(jwtKey)
 
-	sessionRepo := repositories.NewSessionRepository(db.DB)
-	userRepo := repositories.NewUserRepository(db.DB)
+	sessionRepo := repositories_users.NewSessionRepository(db.DB)
+	userRepo := repositories_users.NewUserRepository(db.DB)
 	userManager := managers.NewUserManager(db.DB, sessionRepo, userRepo, jwtManager)
 
-	argsRepo := repositories.NewTaskArgsRepository(db.DB)
-	depsRepo := repositories.NewTaskDepsRepository(db.DB)
-	taskRepo := repositories.NewTasksRepository(db.DB, depsRepo, argsRepo)
-	exprRepo := repositories.NewExpressionsRepository(db.DB, taskRepo)
+	argsRepo := repositories_expressions.NewTaskArgsRepository(db.DB)
+	depsRepo := repositories_expressions.NewTaskDepsRepository(db.DB)
+	taskRepo := repositories_expressions.NewTasksRepository(db.DB, depsRepo, argsRepo)
+	exprRepo := repositories_expressions.NewExpressionsRepository(db.DB, taskRepo)
 	taskManager := managers.NewExpressionManager(db.DB, exprRepo, taskRepo)
 
 	return &Providers{
