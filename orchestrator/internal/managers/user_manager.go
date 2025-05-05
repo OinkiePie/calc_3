@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/repositories_users"
-	"github.com/OinkiePie/calc_3/pkg/jwt"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories"
+	"github.com/OinkiePie/calc_3/pkg/jwt_manager"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
 )
@@ -14,9 +14,9 @@ import (
 // UserManager предоставляет методы для управления пользователями, включая регистрацию, аутентификацию и удаление.
 type UserManager struct {
 	db          *sql.DB // Подключение к базе данных
-	sessionRepo *repositories_users.SessionRepository
-	userRepo    *repositories_users.UserRepository // Репозиторий для работы с данными пользователей
-	jwtManager  *jwt.JWTManager                    // Менеджер для работы с JWT-токенами
+	sessionRepo repositories.SessionRepositoryInterface
+	userRepo    repositories.UserRepositoryInterface // Репозиторий для работы с данными пользователей
+	jwtManager  jwt_manager.JWTManagerInterface      // Менеджер для работы с JWT-токенами
 }
 
 // NewUserManager создает новый экземпляр UserManager.
@@ -31,9 +31,9 @@ type UserManager struct {
 //	*UserManager - Новый экземпляр менеджера пользователей
 func NewUserManager(
 	db *sql.DB,
-	sessionRepo *repositories_users.SessionRepository,
-	userRepo *repositories_users.UserRepository,
-	jwtManager *jwt.JWTManager,
+	sessionRepo repositories.SessionRepositoryInterface,
+	userRepo repositories.UserRepositoryInterface,
+	jwtManager jwt_manager.JWTManagerInterface,
 ) *UserManager {
 	return &UserManager{
 		db:          db,
@@ -47,18 +47,18 @@ func NewUserManager(
 //
 // Args:
 //
-//	ctx: context.Context - Контекст выполнения
-//	login: string - Логин пользователя
-//	password: string - Пароль пользователя (в открытом виде)
+//	ctx: context.Context - Контекст выполнения.
+//	login: string - Логин пользователя.
+//	password: string - Пароль пользователя (в открытом виде).
 //
 // Returns:
 //
-//	int64 - ID зарегистрированного пользователя
-//	error - Ошибка выполнения
+//	int64 - ID зарегистрированного пользователя.
+//	error - Ошибка выполнения.
 //	int - HTTP статус код:
-//		- ошибки репозиториев
-//		- 200 OK при успешном выполнении
-//	    - 500 Internal Server Error при ошибках
+//		- 201 Created при успешном создании
+//		- 409 Conflict при дубликате логина
+//		- 500 Internal Server Error при других ошибках
 func (m *UserManager) Register(ctx context.Context, login, password string) (int64, error, int) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -70,26 +70,26 @@ func (m *UserManager) Register(ctx context.Context, login, password string) (int
 		return 0, err, code
 	}
 
-	return user.ID, nil, http.StatusOK
+	return user.ID, nil, http.StatusCreated
 }
 
 // Login выполняет аутентификацию пользователя и генерирует JWT-токен.
 //
 // Args:
 //
-//	ctx: context.Context - Контекст выполнения
-//	login: string - Логин пользователя
-//	password: string - Пароль пользователя (в открытом виде)
+//	ctx: context.Context - Контекст выполнения.
+//	login: string - Логин пользователя.
+//	password: string - Пароль пользователя (в открытом виде).
 //
 // Returns:
 //
-//	string - Сгенерированный JWT-токен
-//	int64 - ID аутентифицированного пользователя
-//	error - Ошибка выполнения
+//	string - Сгенерированный JWT-токен.
+//	int64 - ID аутентифицированного пользователя.
+//	error - Ошибка выполнения.
 //	int - HTTP статус код:
-//		- ошибки репозиториев
-//		- 200 OK при успешном выполнении
-//	    - 500 Internal Server Error при ошибках
+//		- 200 OK при успешной аутентификации
+//		- 401 Unauthorized если пользователь не найден
+//		- 500 Internal Server Error при ошибках
 func (m *UserManager) Login(ctx context.Context, login, password string) (string, int64, error, int) {
 	tx, err := m.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -97,9 +97,9 @@ func (m *UserManager) Login(ctx context.Context, login, password string) (string
 	}
 	defer tx.Rollback()
 
-	user, err, code := m.userRepo.ReadUserByLogin(ctx, login)
+	user, err, _ := m.userRepo.ReadUserByLogin(ctx, login)
 	if err != nil {
-		return "", 0, errors.New("неверный логин или пароль"), code
+		return "", 0, errors.New("неверный логин или пароль"), http.StatusUnauthorized
 	}
 
 	if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
@@ -111,9 +111,9 @@ func (m *UserManager) Login(ctx context.Context, login, password string) (string
 		return "", 0, fmt.Errorf("не удалось сгенерировать токен: %w", err), http.StatusInternalServerError
 	}
 
-	err, code = m.sessionRepo.CreateSession(ctx, tx, jti, user.ID, exp)
+	err, _ = m.sessionRepo.CreateSession(ctx, tx, jti, user.ID, exp)
 	if err != nil {
-		return "", 0, err, code
+		return "", 0, err, http.StatusUnauthorized
 	}
 
 	if err = tx.Commit(); err != nil {
@@ -123,6 +123,20 @@ func (m *UserManager) Login(ctx context.Context, login, password string) (string
 	return token, user.ID, nil, http.StatusOK
 }
 
+// Logout удаляет сессию из базы данных.
+//
+// Args:
+//
+//	ctx: context.Context - Контекст для контроля выполнения запроса.
+//	jti: string - Идентификатор сессии.
+//
+// Returns:
+//
+//	*models.Session - Указатель на сессию.
+//	error - Ошибка выполнения операции.
+//	int - HTTP-статус код результата операции:
+//		- 200 OK при успешном получении
+//		- 500 Internal Server Error при ошибках
 func (m *UserManager) Logout(ctx context.Context, jti string) (error, int) {
 	return m.sessionRepo.DeleteSession(ctx, jti)
 }
@@ -131,22 +145,22 @@ func (m *UserManager) Logout(ctx context.Context, jti string) (error, int) {
 //
 // Args:
 //
-//	ctx: context.Context - Контекст выполнения
-//	login: string - Логин пользователя
-//	password: string - Пароль пользователя (в открытом виде)
+//	ctx: context.Context - Контекст выполнения.
+//	login: string - Логин пользователя.
+//	password: string - Пароль пользователя (в открытом виде).
 //
 // Returns:
 //
-//	int64 - ID удаленного пользователя
-//	error - Ошибка выполнения
+//	int64 - ID удаленного пользователя.
+//	error - Ошибка выполнения.
 //	int - HTTP статус код:
-//		- ошибки репозиториев
-//		- 200 OK при успешном выполнении
-//	    - 500 Internal Server Error при ошибках
+//		- 200 OK при успешном удалении
+//		- 401 Unauthorized при несовпадении паролей
+//		- 500 Internal Server Error при ошибках
 func (m *UserManager) Delete(ctx context.Context, login, password string) (int64, error, int) {
 	user, err, code := m.userRepo.ReadUserByLogin(ctx, login)
 	if err != nil {
-		return 0, err, code
+		return 0, err, http.StatusUnauthorized
 	}
 
 	if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
@@ -160,6 +174,17 @@ func (m *UserManager) Delete(ctx context.Context, login, password string) (int64
 	return user.ID, nil, http.StatusOK
 }
 
+// SessionExists проверяет существование сессии.
+//
+// Args:
+//
+//	ctx: context.Context - Контекст выполнения.
+//	jti: string - Идентификатор сессии.
+//
+// Returns:
+//
+//	error - Ошибка выполнения.
+//	bool - Индикатор существования.
 func (m *UserManager) SessionExists(ctx context.Context, jti string) (error, bool) {
 	session, err, _ := m.sessionRepo.ReadSession(ctx, jti)
 	if session == nil {

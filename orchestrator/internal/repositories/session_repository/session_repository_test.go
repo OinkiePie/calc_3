@@ -1,21 +1,21 @@
-package repositories_users
+package session_repository_test
 
 import (
 	"context"
 	"database/sql"
 	"errors"
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/session_repository"
 	"github.com/OinkiePie/calc_3/pkg/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"net/http"
 	"testing"
 )
 
 func TestCreateSession_CorrectSession_Success(t *testing.T) {
 	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 
 	mock.ExpectBegin()
@@ -24,7 +24,7 @@ func TestCreateSession_CorrectSession_Success(t *testing.T) {
 		t.Fatalf("Ошибка начала транзакции: %v", err)
 	}
 
-	repo := NewSessionRepository(db)
+	repo := session_repository.NewSessionRepository(db)
 
 	mock.ExpectExec(`INSERT INTO sessions`).
 		WithArgs("test_id", 1, int64(1234567890)).
@@ -39,9 +39,7 @@ func TestCreateSession_CorrectSession_Success(t *testing.T) {
 
 func TestCreateSession_CorrectSession_InternalError(t *testing.T) {
 	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 
 	mock.ExpectBegin()
@@ -50,7 +48,7 @@ func TestCreateSession_CorrectSession_InternalError(t *testing.T) {
 		t.Fatalf("Ошибка начала транзакции: %v", err)
 	}
 
-	repo := NewSessionRepository(db)
+	repo := session_repository.NewSessionRepository(db)
 
 	mock.ExpectExec(`INSERT INTO sessions`).
 		WithArgs("test_id", 1, int64(1234567890)).
@@ -66,9 +64,7 @@ func TestCreateSession_CorrectSession_InternalError(t *testing.T) {
 
 func TestCreateSession_CanceledContext_InternalError(t *testing.T) {
 	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 
 	mock.ExpectBegin()
@@ -77,7 +73,7 @@ func TestCreateSession_CanceledContext_InternalError(t *testing.T) {
 		t.Fatalf("Ошибка начала транзакции: %v", err)
 	}
 
-	repo := NewSessionRepository(db)
+	repo := session_repository.NewSessionRepository(db)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -92,12 +88,10 @@ func TestCreateSession_CanceledContext_InternalError(t *testing.T) {
 
 func TestReadSession_CorrectJti_Success(t *testing.T) {
 	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 
-	repo := NewSessionRepository(db)
+	repo := session_repository.NewSessionRepository(db)
 
 	rows := sqlmock.NewRows([]string{"id", "user_id", "expires"}).AddRow("test_jti", int64(1), int64(1234567890))
 	mock.ExpectQuery(`SELECT id, user_id, expires FROM sessions WHERE id = ?`).
@@ -114,12 +108,10 @@ func TestReadSession_CorrectJti_Success(t *testing.T) {
 
 func TestReadSession_UndefinedJti_Error(t *testing.T) {
 	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 
-	repo := NewSessionRepository(db)
+	repo := session_repository.NewSessionRepository(db)
 
 	mock.ExpectQuery(`SELECT id, user_id, expires FROM sessions WHERE id = ?`).
 		WithArgs("test_jti").
@@ -134,12 +126,10 @@ func TestReadSession_UndefinedJti_Error(t *testing.T) {
 
 func TestReadSession_CorrectJti_InternalError(t *testing.T) {
 	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 
-	repo := NewSessionRepository(db)
+	repo := session_repository.NewSessionRepository(db)
 
 	mock.ExpectQuery(`SELECT id, user_id, expires FROM sessions WHERE id = ?`).
 		WithArgs("test_jti").
@@ -155,12 +145,10 @@ func TestReadSession_CorrectJti_InternalError(t *testing.T) {
 
 func TestReadSession_CanceledContext_InternalError(t *testing.T) {
 	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 
-	repo := NewSessionRepository(db)
+	repo := session_repository.NewSessionRepository(db)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -175,12 +163,10 @@ func TestReadSession_CanceledContext_InternalError(t *testing.T) {
 
 func TestDeleteSession_CorrectId_Success(t *testing.T) {
 	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 
-	repo := NewSessionRepository(db)
+	repo := session_repository.NewSessionRepository(db)
 
 	mock.ExpectExec(`DELETE FROM sessions WHERE id = ?`).
 		WithArgs("test_id").
@@ -195,12 +181,10 @@ func TestDeleteSession_CorrectId_Success(t *testing.T) {
 
 func TestDeleteSession_IncorrectId_Success(t *testing.T) {
 	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 
-	repo := NewSessionRepository(db)
+	repo := session_repository.NewSessionRepository(db)
 
 	mock.ExpectExec(`DELETE FROM sessions WHERE id = ?`).
 		WithArgs("test_id").
@@ -215,12 +199,10 @@ func TestDeleteSession_IncorrectId_Success(t *testing.T) {
 
 func TestDeleteSession_CorrectId_InternalError(t *testing.T) {
 	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 
-	repo := NewSessionRepository(db)
+	repo := session_repository.NewSessionRepository(db)
 
 	mock.ExpectExec(`DELETE FROM sessions WHERE id = ?`).
 		WithArgs("test_id").
@@ -236,12 +218,10 @@ func TestDeleteSession_CorrectId_InternalError(t *testing.T) {
 
 func TestDeleteSession_CanceledContext_InternalError(t *testing.T) {
 	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 
-	repo := NewSessionRepository(db)
+	repo := session_repository.NewSessionRepository(db)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

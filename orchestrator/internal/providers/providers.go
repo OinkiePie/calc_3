@@ -4,11 +4,12 @@ import (
 	"context"
 	"github.com/OinkiePie/calc_3/orchestrator/internal/managers"
 	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories"
-	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/repositories_expressions"
-	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/repositories_users"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/expressions_repository"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/session_repository"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/tasks_repository"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/user_repository"
 	"github.com/OinkiePie/calc_3/pkg/database"
-	"github.com/OinkiePie/calc_3/pkg/jwt"
-	"github.com/OinkiePie/calc_3/pkg/logger"
+	"github.com/OinkiePie/calc_3/pkg/jwt_manager"
 )
 
 // Providers содержит все зависимости (репозитории и менеджеры) приложения.
@@ -22,7 +23,7 @@ type Providers struct {
 	TaskRepo    repositories.TasksRepositoryInterface       // Репозиторий задач
 	ExprRepo    repositories.ExpressionsRepositoryInterface // Репозиторий выражений
 	ExprManager managers.ExpressionManagerInterface         // Менеджер выражений
-	JWTManager  *jwt.JWTManager                             // Менеджер JWT-токенов
+	JWTManager  jwt_manager.JWTManagerInterface             // Менеджер JWT-токенов
 	DB          *database.DataBase                          // Подключение к базе данных
 }
 
@@ -38,28 +39,23 @@ type Providers struct {
 //
 //	*Providers - Инициализированный контейнер зависимостей
 //	error - Ошибка инициализации (например, проблемы с подключением к БД)
-//
-// Note:
-//
-//	При ошибке подключения к БД записывает сообщение в лог и завершает работу
 func NewProviders(ctx context.Context, dbPath string, jwtKey string) (*Providers, error) {
 
 	db, err := database.NewDB(ctx, dbPath)
 	if err != nil {
-		logger.Log.Fatalf("Не удалось подключиться к базе данных: %v", err)
 		return nil, err
 	}
 
-	jwtManager := jwt.NewJWTManager(jwtKey)
+	jwtManager := jwt_manager.NewJWTManager(jwtKey)
 
-	sessionRepo := repositories_users.NewSessionRepository(db.DB)
-	userRepo := repositories_users.NewUserRepository(db.DB)
+	sessionRepo := session_repository.NewSessionRepository(db.DB)
+	userRepo := user_repository.NewUserRepository(db.DB)
 	userManager := managers.NewUserManager(db.DB, sessionRepo, userRepo, jwtManager)
 
-	argsRepo := repositories_expressions.NewTaskArgsRepository(db.DB)
-	depsRepo := repositories_expressions.NewTaskDepsRepository(db.DB)
-	taskRepo := repositories_expressions.NewTasksRepository(db.DB, depsRepo, argsRepo)
-	exprRepo := repositories_expressions.NewExpressionsRepository(db.DB, taskRepo)
+	argsRepo := tasks_repository.NewTaskArgsRepository(db.DB)
+	depsRepo := tasks_repository.NewTaskDepsRepository(db.DB)
+	taskRepo := tasks_repository.NewTasksRepository(db.DB, depsRepo, argsRepo)
+	exprRepo := expressions_repository.NewExpressionsRepository(db.DB, taskRepo)
 	taskManager := managers.NewExpressionManager(db.DB, exprRepo, taskRepo)
 
 	return &Providers{

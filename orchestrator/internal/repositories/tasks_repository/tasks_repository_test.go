@@ -1,10 +1,12 @@
-package repositories_expressions
+package tasks_repository_test
 
 import (
 	"context"
 	"database/sql"
 	"errors"
 	"github.com/DATA-DOG/go-sqlmock"
+	m "github.com/OinkiePie/calc_3/orchestrator/internal/repositories"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/tasks_repository"
 	"github.com/OinkiePie/calc_3/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -20,10 +22,10 @@ func TestCreateTask_CorrectTask_Success(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -34,7 +36,7 @@ func TestCreateTask_CorrectTask_Success(t *testing.T) {
 	task := &models.Task{
 		Expression:   1,
 		Operation:    "+",
-		Args:         []*float64{float64Ptr(2), float64Ptr(3)},
+		Args:         []*float64{m.Float64Ptr(2), m.Float64Ptr(3)},
 		Dependencies: []int64{},
 	}
 
@@ -64,10 +66,10 @@ func TestCreateTask_CorrectTask_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -78,7 +80,7 @@ func TestCreateTask_CorrectTask_InternalError(t *testing.T) {
 	task := &models.Task{
 		Expression:   1,
 		Operation:    "+",
-		Args:         []*float64{float64Ptr(2), float64Ptr(3)},
+		Args:         []*float64{m.Float64Ptr(2), m.Float64Ptr(3)},
 		Dependencies: []int64{},
 	}
 
@@ -106,10 +108,10 @@ func TestCreateTask_IncorrectArgs_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -120,7 +122,7 @@ func TestCreateTask_IncorrectArgs_InternalError(t *testing.T) {
 	task := &models.Task{
 		Expression:   1,
 		Operation:    "+",
-		Args:         []*float64{float64Ptr(2), float64Ptr(3)},
+		Args:         []*float64{m.Float64Ptr(2), m.Float64Ptr(3)},
 		Dependencies: []int64{},
 	}
 
@@ -149,10 +151,10 @@ func TestCreateTask_IncorrectDeps_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -163,7 +165,7 @@ func TestCreateTask_IncorrectDeps_InternalError(t *testing.T) {
 	task := &models.Task{
 		Expression:   1,
 		Operation:    "+",
-		Args:         []*float64{float64Ptr(2), float64Ptr(3)},
+		Args:         []*float64{m.Float64Ptr(2), m.Float64Ptr(3)},
 		Dependencies: []int64{},
 	}
 
@@ -192,10 +194,10 @@ func TestCreateTask_CanceledContext_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -223,10 +225,10 @@ func TestReadTaskByID_CorrectId_Success(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -240,7 +242,7 @@ func TestReadTaskByID_CorrectId_Success(t *testing.T) {
 		WithArgs(int64(1)).
 		WillReturnRows(rows)
 
-	argsRepoMock.On("ReadTaskArgs", mock.Anything, tx, int64(1)).Return([]*float64{float64Ptr(3), float64Ptr(0)}, nil)
+	argsRepoMock.On("ReadTaskArgs", mock.Anything, tx, int64(1)).Return([]*float64{m.Float64Ptr(3), m.Float64Ptr(0)}, nil)
 	depsRepoMock.On("ReadTaskDeps", mock.Anything, tx, int64(1)).Return([]int64{1, 2}, nil)
 
 	task, err, status := repo.ReadTaskByID(context.Background(), tx, int64(1))
@@ -249,9 +251,9 @@ func TestReadTaskByID_CorrectId_Success(t *testing.T) {
 		ID:           int64(1),
 		Expression:   int64(2),
 		Operation:    "+",
-		Result:       float64Ptr(3),
+		Result:       m.Float64Ptr(3),
 		Status:       "completed",
-		Args:         []*float64{float64Ptr(3), float64Ptr(0)},
+		Args:         []*float64{m.Float64Ptr(3), m.Float64Ptr(0)},
 		Dependencies: []int64{1, 2},
 	}, task)
 	assert.NoError(t, err)
@@ -269,10 +271,10 @@ func TestReadTaskByID_UndefinedId_Error(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -303,10 +305,10 @@ func TestReadTaskByID_CorrectId_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -338,10 +340,10 @@ func TestReadTaskByID_IncorrectArgs_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -375,10 +377,10 @@ func TestReadTaskByID_IncorrectDeps_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -412,10 +414,10 @@ func TestReadTaskByID_CanceledContext_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -443,10 +445,10 @@ func TestReadTasksByExpressionID_CorrectId_Success(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -460,18 +462,18 @@ func TestReadTasksByExpressionID_CorrectId_Success(t *testing.T) {
 			ID:           1,
 			Expression:   expressionID,
 			Operation:    "+",
-			Result:       float64Ptr(3),
+			Result:       m.Float64Ptr(3),
 			Status:       "completed",
-			Args:         []*float64{float64Ptr(1), float64Ptr(2)},
+			Args:         []*float64{m.Float64Ptr(1), m.Float64Ptr(2)},
 			Dependencies: []int64{2, 3},
 		},
 		{
 			ID:           2,
 			Expression:   expressionID,
 			Operation:    "*",
-			Result:       float64Ptr(6),
+			Result:       m.Float64Ptr(6),
 			Status:       "completed",
-			Args:         []*float64{float64Ptr(3), float64Ptr(2)},
+			Args:         []*float64{m.Float64Ptr(3), m.Float64Ptr(2)},
 			Dependencies: []int64{},
 		},
 	}
@@ -509,10 +511,10 @@ func TestReadTasksByExpressionID_UndefinedId_Error(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -541,10 +543,10 @@ func TestReadTasksByExpressionID_CorrectId_Error(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -572,10 +574,10 @@ func TestReadTasksByExpressionID_IncorrectRows_ReadError(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -586,8 +588,8 @@ func TestReadTasksByExpressionID_IncorrectRows_ReadError(t *testing.T) {
 	expressionID := int64(1)
 
 	rows := sqlmock.NewRows([]string{"id", "expression_id", "operation", "result", "status"}).
-		AddRow("string", expressionID, "+", float64Ptr(3), "completed").
-		AddRow(2, expressionID, "*", float64Ptr(6), "completed")
+		AddRow("string", expressionID, "+", m.Float64Ptr(3), "completed").
+		AddRow(2, expressionID, "*", m.Float64Ptr(6), "completed")
 	sqlMock.ExpectQuery(`SELECT id, expression_id, operation, result, status FROM tasks WHERE expression_id = ?`).
 		WithArgs(expressionID).
 		WillReturnRows(rows)
@@ -609,10 +611,10 @@ func TestReadTasksByExpressionID_IncorrectRows_ProcessingError(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -623,7 +625,7 @@ func TestReadTasksByExpressionID_IncorrectRows_ProcessingError(t *testing.T) {
 	expressionID := int64(1)
 
 	rows := sqlmock.NewRows([]string{"id", "expression_id", "operation", "result", "status"}).
-		AddRow(1, expressionID, "+", float64Ptr(3), "completed")
+		AddRow(1, expressionID, "+", m.Float64Ptr(3), "completed")
 	rows.RowError(0, errors.New("error"))
 	sqlMock.ExpectQuery(`SELECT id, expression_id, operation, result, status FROM tasks WHERE expression_id = ?`).
 		WithArgs(expressionID).
@@ -646,10 +648,10 @@ func TestReadTasksByExpressionID_IncorrectArgs_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -660,8 +662,8 @@ func TestReadTasksByExpressionID_IncorrectArgs_InternalError(t *testing.T) {
 	expressionID := int64(1)
 
 	rows := sqlmock.NewRows([]string{"id", "expression_id", "operation", "result", "status"}).
-		AddRow(1, expressionID, "+", float64Ptr(3), "completed").
-		AddRow(2, expressionID, "*", float64Ptr(6), "completed")
+		AddRow(1, expressionID, "+", m.Float64Ptr(3), "completed").
+		AddRow(2, expressionID, "*", m.Float64Ptr(6), "completed")
 	sqlMock.ExpectQuery(`SELECT id, expression_id, operation, result, status FROM tasks WHERE expression_id = ?`).
 		WithArgs(int64(2)).
 		WillReturnRows(rows)
@@ -690,10 +692,10 @@ func TestReadTasksByExpressionID_IncorrectDeps_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -704,8 +706,8 @@ func TestReadTasksByExpressionID_IncorrectDeps_InternalError(t *testing.T) {
 	expressionID := int64(1)
 
 	rows := sqlmock.NewRows([]string{"id", "expression_id", "operation", "result", "status"}).
-		AddRow(1, expressionID, "+", float64Ptr(3), "completed").
-		AddRow(2, expressionID, "*", float64Ptr(6), "completed")
+		AddRow(1, expressionID, "+", m.Float64Ptr(3), "completed").
+		AddRow(2, expressionID, "*", m.Float64Ptr(6), "completed")
 	sqlMock.ExpectQuery(`SELECT id, expression_id, operation, result, status FROM tasks WHERE expression_id = ?`).
 		WithArgs(int64(2)).
 		WillReturnRows(rows)
@@ -733,10 +735,10 @@ func TestReadTasksByExpressionID_CanceledContext_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -763,10 +765,10 @@ func TestReadUncompletedTasks_CorrectId_Success(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -780,18 +782,18 @@ func TestReadUncompletedTasks_CorrectId_Success(t *testing.T) {
 			ID:           1,
 			Expression:   expressionID,
 			Operation:    "+",
-			Result:       float64Ptr(3),
+			Result:       m.Float64Ptr(3),
 			Status:       "pending",
-			Args:         []*float64{float64Ptr(1), float64Ptr(2)},
+			Args:         []*float64{m.Float64Ptr(1), m.Float64Ptr(2)},
 			Dependencies: []int64{2, 3},
 		},
 		{
 			ID:           2,
 			Expression:   expressionID,
 			Operation:    "*",
-			Result:       float64Ptr(6),
+			Result:       m.Float64Ptr(6),
 			Status:       "pending",
-			Args:         []*float64{float64Ptr(3), float64Ptr(2)},
+			Args:         []*float64{m.Float64Ptr(3), m.Float64Ptr(2)},
 			Dependencies: []int64{},
 		},
 	}
@@ -828,10 +830,10 @@ func TestReadUncompletedTasks_UndefinedId_Error(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -859,10 +861,10 @@ func TestReadUncompletedTasks_CorrectId_Error(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -889,10 +891,10 @@ func TestReadUncompletedTasks_IncorrectRows_ReadError(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -901,8 +903,8 @@ func TestReadUncompletedTasks_IncorrectRows_ReadError(t *testing.T) {
 	}
 
 	rows := sqlmock.NewRows([]string{"id", "expression_id", "operation", "result", "status"}).
-		AddRow("string", int64(1), "+", float64Ptr(3), "pending").
-		AddRow(2, int64(1), "*", float64Ptr(6), "pending")
+		AddRow("string", int64(1), "+", m.Float64Ptr(3), "pending").
+		AddRow(2, int64(1), "*", m.Float64Ptr(6), "pending")
 	sqlMock.ExpectQuery(`SELECT id, expression_id, operation, result, status FROM tasks WHERE status = 'pending'`).
 		WillReturnRows(rows)
 
@@ -923,10 +925,10 @@ func TestReadUncompletedTasks_IncorrectRows_ProcessingError(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -937,7 +939,7 @@ func TestReadUncompletedTasks_IncorrectRows_ProcessingError(t *testing.T) {
 	expressionID := int64(1)
 
 	rows := sqlmock.NewRows([]string{"id", "expression_id", "operation", "result", "status"}).
-		AddRow(1, expressionID, "+", float64Ptr(3), "pending")
+		AddRow(1, expressionID, "+", m.Float64Ptr(3), "pending")
 	rows.RowError(0, errors.New("error"))
 	sqlMock.ExpectQuery(`SELECT id, expression_id, operation, result, status FROM tasks WHERE status = 'pending'`).
 		WillReturnRows(rows)
@@ -959,10 +961,10 @@ func TestReadUncompletedTasks_IncorrectArgs_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -973,8 +975,8 @@ func TestReadUncompletedTasks_IncorrectArgs_InternalError(t *testing.T) {
 	expressionID := int64(1)
 
 	rows := sqlmock.NewRows([]string{"id", "expression_id", "operation", "result", "status"}).
-		AddRow(1, expressionID, "+", float64Ptr(3), "pending").
-		AddRow(2, expressionID, "*", float64Ptr(6), "pending")
+		AddRow(1, expressionID, "+", m.Float64Ptr(3), "pending").
+		AddRow(2, expressionID, "*", m.Float64Ptr(6), "pending")
 	sqlMock.ExpectQuery(`SELECT id, expression_id, operation, result, status FROM tasks WHERE status = 'pending'`).
 		WillReturnRows(rows)
 
@@ -1002,10 +1004,10 @@ func TestReadUncompletedTasks_IncorrectDeps_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -1016,8 +1018,8 @@ func TestReadUncompletedTasks_IncorrectDeps_InternalError(t *testing.T) {
 	expressionID := int64(1)
 
 	rows := sqlmock.NewRows([]string{"id", "expression_id", "operation", "result", "status"}).
-		AddRow(1, expressionID, "+", float64Ptr(3), "pending").
-		AddRow(2, expressionID, "*", float64Ptr(6), "pending")
+		AddRow(1, expressionID, "+", m.Float64Ptr(3), "pending").
+		AddRow(2, expressionID, "*", m.Float64Ptr(6), "pending")
 	sqlMock.ExpectQuery(`SELECT id, expression_id, operation, result, status FROM tasks WHERE status = 'pending'`).
 		WillReturnRows(rows)
 
@@ -1044,10 +1046,10 @@ func TestReadUncompletedTasks_CanceledContext_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
-	depsRepoMock := new(MockDepsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -1074,9 +1076,9 @@ func TestUpdateTaskDependencies_CorrectTask_Success(t *testing.T) {
 	}
 	defer db.Close()
 
-	depsRepoMock := new(MockDepsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, nil)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, nil)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -1107,9 +1109,9 @@ func TestUpdateTaskDependencies_CorrectTask_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	depsRepoMock := new(MockDepsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, nil)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, nil)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -1140,9 +1142,9 @@ func TestUpdateTaskDependencies_CanceledContext_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	depsRepoMock := new(MockDepsRepository)
+	depsRepoMock := new(m.MockDepsRepository)
 
-	repo := NewTasksRepository(db, depsRepoMock, nil)
+	repo := tasks_repository.NewTasksRepository(db, depsRepoMock, nil)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -1175,9 +1177,9 @@ func TestUpdateTaskArguments_CorrectTask_Success(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
 
-	repo := NewTasksRepository(db, nil, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, nil, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -1185,10 +1187,10 @@ func TestUpdateTaskArguments_CorrectTask_Success(t *testing.T) {
 		t.Fatalf("Ошибка начала транзакции: %v", err)
 	}
 
-	value := float64Ptr(1)
+	value := m.Float64Ptr(1)
 	task := &models.Task{
 		ID:   1,
-		Args: []*float64{float64Ptr(2), float64Ptr(3)},
+		Args: []*float64{m.Float64Ptr(2), m.Float64Ptr(3)},
 	}
 
 	argsRepoMock.On("UpdateTaskArgs", mock.Anything, tx, task.ID, 1, value).
@@ -1209,9 +1211,9 @@ func TestUpdateTaskArguments_CorrectTask_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
 
-	repo := NewTasksRepository(db, nil, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, nil, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -1219,10 +1221,10 @@ func TestUpdateTaskArguments_CorrectTask_InternalError(t *testing.T) {
 		t.Fatalf("Ошибка начала транзакции: %v", err)
 	}
 
-	value := float64Ptr(1)
+	value := m.Float64Ptr(1)
 	task := &models.Task{
 		ID:   1,
-		Args: []*float64{float64Ptr(2), float64Ptr(3)},
+		Args: []*float64{m.Float64Ptr(2), m.Float64Ptr(3)},
 	}
 
 	argsRepoMock.On("UpdateTaskArgs", mock.Anything, tx, task.ID, 1, value).
@@ -1243,9 +1245,9 @@ func TestUpdateTaskArguments_CanceledContext_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	argsRepoMock := new(MockArgsRepository)
+	argsRepoMock := new(m.MockArgsRepository)
 
-	repo := NewTasksRepository(db, nil, argsRepoMock)
+	repo := tasks_repository.NewTasksRepository(db, nil, argsRepoMock)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -1256,10 +1258,10 @@ func TestUpdateTaskArguments_CanceledContext_InternalError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	value := float64Ptr(1)
+	value := m.Float64Ptr(1)
 	task := &models.Task{
 		ID:   1,
-		Args: []*float64{float64Ptr(2), float64Ptr(3)},
+		Args: []*float64{m.Float64Ptr(2), m.Float64Ptr(3)},
 	}
 
 	argsRepoMock.On("UpdateTaskArgs", mock.Anything, tx, task.ID, 1, value).
@@ -1279,7 +1281,7 @@ func TestUpdateTaskStatus_CorrectStatus_Success(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := NewTasksRepository(db, nil, nil)
+	repo := tasks_repository.NewTasksRepository(db, nil, nil)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -1308,7 +1310,7 @@ func TestUpdateTaskStatus_CorrectStatus_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := &TasksRepository{db: db}
+	repo := tasks_repository.NewTasksRepository(db, nil, nil)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -1338,7 +1340,7 @@ func TestUpdateTaskStatus_CanceledContext_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := &TasksRepository{db: db}
+	repo := tasks_repository.NewTasksRepository(db, nil, nil)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -1363,7 +1365,7 @@ func TestUpdateTaskExpressionID_CorrectStatus_Success(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := NewTasksRepository(db, nil, nil)
+	repo := tasks_repository.NewTasksRepository(db, nil, nil)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -1392,7 +1394,7 @@ func TestUpdateTaskExpressionID_CorrectStatus_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := &TasksRepository{db: db}
+	repo := tasks_repository.NewTasksRepository(db, nil, nil)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -1422,7 +1424,7 @@ func TestUpdateTaskExpressionID_CanceledContext_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := &TasksRepository{db: db}
+	repo := tasks_repository.NewTasksRepository(db, nil, nil)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -1447,7 +1449,7 @@ func TestUpdateTaskResult_CorrectStatus_Success(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := NewTasksRepository(db, nil, nil)
+	repo := tasks_repository.NewTasksRepository(db, nil, nil)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -1476,7 +1478,7 @@ func TestUpdateTaskResult_CorrectStatus_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := NewTasksRepository(db, nil, nil)
+	repo := tasks_repository.NewTasksRepository(db, nil, nil)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -1506,7 +1508,7 @@ func TestUpdateTaskResult_CanceledContext_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := NewTasksRepository(db, nil, nil)
+	repo := tasks_repository.NewTasksRepository(db, nil, nil)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -1531,7 +1533,7 @@ func TestDeleteTasks_CorrectId_Success(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := NewTasksRepository(db, nil, nil)
+	repo := tasks_repository.NewTasksRepository(db, nil, nil)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -1559,7 +1561,7 @@ func TestDeleteTasks_CorrectId_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := NewTasksRepository(db, nil, nil)
+	repo := tasks_repository.NewTasksRepository(db, nil, nil)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()
@@ -1589,7 +1591,7 @@ func TestDeleteTasks_CanceledContext_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := NewTasksRepository(db, nil, nil)
+	repo := tasks_repository.NewTasksRepository(db, nil, nil)
 
 	sqlMock.ExpectBegin()
 	tx, err := db.Begin()

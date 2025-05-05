@@ -1,83 +1,125 @@
 package router_test
 
-//
-//import (
-//	"io"
-//	"log"
-//	"net/http"
-//	"net/http/httptest"
-//	"testing"
-//
-//	"github.com/OinkiePie/calc_3/config"
-//	"github.com/OinkiePie/calc_3/orchestrator/internal/router"
-//	"github.com/OinkiePie/calc_3/pkg/logger"
-//	"github.com/stretchr/testify/assert"
-//)
-//
-//func init() {
-//	// Отключаем выводы и инициализируем конфиг
-//	log.SetOutput(io.Discard)
-//	config.InitConfig()
-//	logger.InitLogger(logger.Options{Level: 6})
-//}
-//
-//// TestNewOrchestratorRouter тестирует создание, настройку роутера и маршруты (без аутентификации).
-//func TestNewOrchestratorRouterUnauthorized(t *testing.T) {
-//	config.Cfg.Middleware.ApiKeyPrefix = "Bearer "
-//	config.Cfg.Middleware.Authorization = "Skibidi"
-//
-//	router := router.NewOrchestratorRouter()
-//
-//	testsGet := []struct {
-//		method       string
-//		path         string
-//		expectedCode int
-//	}{
-//		{"POST", "/api/v1/calculate", http.StatusBadRequest}, // Пустое тело запроса
-//		{"GET", "/api/v1/expressions", http.StatusOK},
-//		{"GET", "/api/v1/expressions/1", http.StatusNotFound}, // Нет выражения с таким ID
-//		{"GET", "/internal/task", http.StatusUnauthorized},
-//		{"GET", "/internal/task/1", http.StatusUnauthorized},
-//		{"POST", "/internal/task", http.StatusUnauthorized},
-//	}
-//
-//	for _, tt := range testsGet {
-//		req, err := http.NewRequest(tt.method, tt.path, nil)
-//		assert.NoError(t, err)
-//
-//		rr := httptest.NewRecorder()
-//		router.ServeHTTP(rr, req)
-//
-//		assert.Equal(t, tt.expectedCode, rr.Code, "для %s %s ожидался статус %d, получен %d", tt.method, tt.path, tt.expectedCode, rr.Code)
-//	}
-//}
-//
-//// TestNewOrchestratorRouterWithAuth тестирует маршруты с аутентификацией.
-//func TestNewOrchestratorRouterAuthorized(t *testing.T) {
-//	config.Cfg.Middleware.ApiKeyPrefix = "Bearer "
-//	config.Cfg.Middleware.Authorization = "2KluchaAvtorizaciiMneIli2Drugomu"
-//
-//	router := router.NewOrchestratorRouter()
-//
-//	authHeader := config.Cfg.Middleware.ApiKeyPrefix + config.Cfg.Middleware.Authorization
-//	tests := []struct {
-//		method       string
-//		path         string
-//		expectedCode int
-//	}{
-//		{"GET", "/internal/task", http.StatusNotFound},    // Авторизацию прошел, но задач нет
-//		{"POST", "/internal/task", http.StatusBadRequest}, // Авторизацию прошел, но зпустое тело запроса
-//		{"GET", "/internal/task/1", http.StatusNotFound},  // Авторизацию прошел, выражения не существует
-//	}
-//
-//	for _, tt := range tests {
-//		req, err := http.NewRequest(tt.method, tt.path, nil)
-//		assert.NoError(t, err)
-//
-//		req.Header.Set("Authorization", authHeader)
-//		rr := httptest.NewRecorder()
-//		router.ServeHTTP(rr, req)
-//
-//		assert.Equal(t, tt.expectedCode, rr.Code, "для %s %s с авторизацией ожидался статус %d, получен %d", tt.method, tt.path, tt.expectedCode, rr.Code)
-//	}
-//}
+import (
+	"github.com/OinkiePie/calc_3/config"
+	mm "github.com/OinkiePie/calc_3/orchestrator/internal/managers"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/providers"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/router"
+	mj "github.com/OinkiePie/calc_3/pkg/jwt_manager"
+	"github.com/OinkiePie/calc_3/pkg/logger"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"io"
+	"log"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
+
+func init() {
+	// Отключаем выводы и инициализируем конфиг
+	log.SetOutput(io.Discard)
+	_ = config.InitConfig()
+	logger.InitLogger(logger.Options{Level: 4})
+}
+
+func TestRoutes_Reachability(t *testing.T) {
+	mockPr := &providers.Providers{}
+	r := router.NewOrchestratorRouter(mockPr)
+
+	tests := []struct {
+		method     string
+		path       string
+		wantStatus int
+	}{
+		{http.MethodPost, "/api/register", http.StatusBadRequest},
+		{http.MethodPost, "/api/login", http.StatusBadRequest},
+		{http.MethodGet, "/api/p/logout", http.StatusUnauthorized},
+		{http.MethodPost, "/api/p/delete", http.StatusUnauthorized},
+		{http.MethodPost, "/api/p/calculate", http.StatusUnauthorized},
+		{http.MethodGet, "/api/p/expressions", http.StatusUnauthorized},
+		{http.MethodGet, "/api/p/expressions/1", http.StatusUnauthorized},
+	}
+
+	for _, tt := range tests {
+		req := httptest.NewRequest(tt.method, tt.path, nil)
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+		assert.Equal(t, tt.wantStatus, rr.Code, "Путь: %s", tt.path)
+	}
+}
+
+func TestRouter_CorsMiddleware(t *testing.T) {
+	mockPr := &providers.Providers{}
+	r := router.NewOrchestratorRouter(mockPr)
+
+	req := httptest.NewRequest(http.MethodOptions, "/api/register", nil)
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+
+	assert.Equal(t, "*", rr.Header().Get("Access-Control-Allow-Origin"))
+}
+
+func TestRouter_AuthMiddleware(t *testing.T) {
+	mockPr := &providers.Providers{}
+	r := router.NewOrchestratorRouter(mockPr)
+
+	tests := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodGet, "/api/p/logout"},
+		{http.MethodPost, "/api/p/delete"},
+		{http.MethodPost, "/api/p/calculate"},
+		{http.MethodGet, "/api/p/expressions"},
+		{http.MethodGet, "/api/p/expressions/1"},
+	}
+
+	for _, tt := range tests {
+		method := http.MethodPost
+		if tt.method == http.MethodPost {
+			method = http.MethodGet
+		}
+		req := httptest.NewRequest(method, tt.path, nil)
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+		assert.Equal(t, http.StatusUnauthorized, rr.Code, "Путь: %s", tt.path)
+	}
+}
+
+func TestRoute_MethodValidation(t *testing.T) {
+	mockJWT := new(mj.MockJWTManager)
+	mockUM := new(mm.MockUserManager)
+	mockPr := &providers.Providers{JWTManager: mockJWT, UserManager: mockUM}
+	r := router.NewOrchestratorRouter(mockPr)
+
+	testClaims := mj.Claims{JWTID: "id"}
+	// Обманываем middleware, чтобы добраться до проверки метода
+	mockJWT.On("Validate", "valid.token").Return(testClaims, nil)
+	mockUM.On("SessionExists", mock.Anything, testClaims.JWTID).Return(nil, true)
+
+	tests := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodPost, "/api/register"},
+		{http.MethodPost, "/api/login"},
+		{http.MethodGet, "/api/p/logout"},
+		{http.MethodPost, "/api/p/delete"},
+		{http.MethodPost, "/api/p/calculate"},
+		{http.MethodGet, "/api/p/expressions"},
+		{http.MethodGet, "/api/p/expressions/1"},
+	}
+
+	for _, tt := range tests {
+		method := http.MethodPost
+		if tt.method == http.MethodPost {
+			method = http.MethodGet
+		}
+		req := httptest.NewRequest(method, tt.path, nil)
+		req.Header.Set("Authorization", "Bearer valid.token")
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+		assert.Equal(t, http.StatusMethodNotAllowed, rr.Code, "Путь: %s", tt.path)
+	}
+}

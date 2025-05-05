@@ -1,9 +1,10 @@
-package repositories_expressions
+package tasks_repository_test
 
 import (
 	"context"
 	"errors"
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/tasks_repository"
 	"github.com/OinkiePie/calc_3/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -22,7 +23,7 @@ func TestCreateTaskDeps_CorrectDeps_Success(t *testing.T) {
 		t.Fatalf("Ошибка начала транзакции: %v", err)
 	}
 
-	repo := NewTaskDepsRepository(db)
+	repo := tasks_repository.NewTaskDepsRepository(db)
 
 	mock.ExpectExec(`INSERT INTO task_deps`).
 		WithArgs(int64(1), int64(2), int64(3)).
@@ -47,7 +48,7 @@ func TestCreateTaskDeps_CorrectDeps_InternalError(t *testing.T) {
 		t.Fatalf("Ошибка начала транзакции: %v", err)
 	}
 
-	repo := NewTaskDepsRepository(db)
+	repo := tasks_repository.NewTaskDepsRepository(db)
 
 	mock.ExpectExec(`INSERT INTO task_deps`).
 		WithArgs(int64(1), int64(2), int64(3)).
@@ -73,7 +74,7 @@ func TestCreateTaskDeps_CanceledContext_InternalError(t *testing.T) {
 		t.Fatalf("Ошибка начала транзакции: %v", err)
 	}
 
-	repo := NewTaskDepsRepository(db)
+	repo := tasks_repository.NewTaskDepsRepository(db)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -98,7 +99,7 @@ func TestReadTaskDeps_CorrectId_Success(t *testing.T) {
 		t.Fatalf("Ошибка начала транзакции: %v", err)
 	}
 
-	repo := NewTaskDepsRepository(db)
+	repo := tasks_repository.NewTaskDepsRepository(db)
 
 	rows := sqlmock.NewRows([]string{"first", "second"}).AddRow(int64(1), int64(2))
 	mock.ExpectQuery(`SELECT first, second FROM task_deps WHERE task_id = ?`).
@@ -125,7 +126,7 @@ func TestReadTaskDeps_InternalError(t *testing.T) {
 		t.Fatalf("Ошибка начала транзакции: %v", err)
 	}
 
-	repo := NewTaskDepsRepository(db)
+	repo := tasks_repository.NewTaskDepsRepository(db)
 
 	mock.ExpectQuery(`SELECT first, second FROM task_deps WHERE task_id = ?`).
 		WithArgs(int64(1)).
@@ -151,7 +152,7 @@ func TestReadTaskDeps_CanceledContext_InternalError(t *testing.T) {
 		t.Fatalf("Ошибка начала транзакции: %v", err)
 	}
 
-	repo := NewTaskDepsRepository(db)
+	repo := tasks_repository.NewTaskDepsRepository(db)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -176,7 +177,7 @@ func TestUpdateTaskDeps_CorrectDeps_Success(t *testing.T) {
 		t.Fatalf("Ошибка начала транзакции: %v", err)
 	}
 
-	repo := NewTaskDepsRepository(db)
+	repo := tasks_repository.NewTaskDepsRepository(db)
 
 	mock.ExpectExec(`UPDATE task_deps`).
 		WithArgs(int64(2), int64(3), int64(1)).
@@ -201,7 +202,7 @@ func TestUpdateTaskDeps_CorrectDeps_InternalError(t *testing.T) {
 		t.Fatalf("Ошибка начала транзакции: %v", err)
 	}
 
-	repo := NewTaskDepsRepository(db)
+	repo := tasks_repository.NewTaskDepsRepository(db)
 
 	mock.ExpectExec(`UPDATE task_deps`).
 		WithArgs(int64(2), int64(3), int64(1)).
@@ -227,7 +228,7 @@ func TestUpdateTaskDeps_CanceledContext_InternalError(t *testing.T) {
 		t.Fatalf("Ошибка начала транзакции: %v", err)
 	}
 
-	repo := NewTaskDepsRepository(db)
+	repo := tasks_repository.NewTaskDepsRepository(db)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

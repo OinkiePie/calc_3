@@ -1,518 +1,1051 @@
 package handlers_test
 
-//
-//import (
-//	"encoding/json"
-//	"fmt"
-//	"github.com/OinkiePie/calc_3/orchestrator/internal/managers"
-//	"github.com/OinkiePie/calc_3/pkg/jwt"
-//	"github.com/OinkiePie/calc_3/pkg/logger"
-//	"github.com/OinkiePie/calc_3/pkg/models"
-//	"github.com/gorilla/mux"
-//	"io"
-//	"net/http"
-//	"strconv"
-//	"strings"
-//)
-//
-//// Handlers - структура для обработчиков запросов, зависит от TaskManager
-//type Handlers struct {
-//	userManager managers.UserManagerInterface
-//	exprManager managers.ExpressionManagerInterface
-//	jwtManager  *jwt.JWTManager
-//}
-//
-//func NewOrchestratorHandlers(um managers.UserManagerInterface, em managers.ExpressionManagerInterface, jwtm *jwt.JWTManager) *Handlers {
-//	return &Handlers{userManager: um, exprManager: em, jwtManager: jwtm}
-//}
-//
-//func (h *Handlers) RegisterUserHandler(w http.ResponseWriter, r *http.Request) {
-//	var req struct {
-//		Login    string `json:"login"`
-//		Password string `json:"password"`
-//	}
-//	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-//		http.Error(w, "Invalid request", http.StatusBadRequest)
-//		return
-//	}
-//
-//	id, err, code := h.userManager.Register(r.Context(), req.Login, req.Password)
-//	if err != nil {
-//		http.Error(w, err.Error(), code)
-//		return
-//	}
-//
-//	w.WriteHeader(http.StatusCreated)
-//
-//	logger.Log.Debugf("Пользователь №%d (%s) создан", id, req.Login)
-//
-//}
-//
-//func (h *Handlers) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
-//	var req struct {
-//		Login    string `json:"login"`
-//		Password string `json:"password"`
-//	}
-//	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-//		http.Error(w, "Invalid request", http.StatusBadRequest)
-//		return
-//	}
-//
-//	token, id, err, code := h.userManager.Login(r.Context(), req.Login, req.Password)
-//	if err != nil {
-//		http.Error(w, fmt.Sprintf("ошибка при входе: %s", err.Error()), code)
-//		return
-//	}
-//
-//	err = json.NewEncoder(w).Encode(map[string]string{"token": token})
-//	if err != nil {
-//		http.Error(w, "ошибка при кодировании ответа в JSON", http.StatusInternalServerError)
-//		return
-//	}
-//
-//	logger.Log.Debugf("Пользователь №%d (%s) вошел", id, req.Login)
-//
-//}
-//
-//func (h *Handlers) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
-//	var req struct {
-//		Login    string `json:"login"`
-//		Password string `json:"password"`
-//	}
-//	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-//		http.Error(w, "Invalid request", http.StatusBadRequest)
-//		return
-//	}
-//
-//	id, err, code := h.userManager.Delete(r.Context(), req.Login, req.Password)
-//	if err != nil {
-//		http.Error(w, "не удалось удалить", code)
-//		return
-//	}
-//
-//	w.WriteHeader(http.StatusOK)
-//
-//	logger.Log.Debugf("Пользователь №%d (%s) удален", id, req.Login)
-//}
-//
-//// AddExpressionHandler обрабатывает POST-запросы на эндпоинт /api/v1/calculate.
-////
-//// Функция принимает JSON-запрос, содержащий математическое выражение в строковом формате,
-//// передает выражение в TaskManager для обработки и сохранения, и возвращает ID созданного выражения.
-////
-//// Args:
-////
-////	w: http.ResponseWriter - интерфейс для записи HTTP-ответа.
-////	r: *http.Request - указатель на структуру, представляющую HTTP-запрос.
-////
-//// Request body (JSON):
-////
-////	{
-////		"expression": "строка с математическим выражением"
-////	}
-////
-//// Responses:
-////
-////	201 Created:
-////	{
-////		"id": "уникальный ID созданного выражения"
-////	}
-////
-////	400 Bad Request:
-////	{
-////		"error": "выражения обязательно"
-////	}
-////
-////	{
-////		"error": "пустое тело запроса"
-////	}
-////
-////	405 Method Not Allowed:
-////	{
-////		"error": "метод не поддерживается"
-////	}
-////
-////	422 Unprocessable Entity:
-////	{
-////		"error": "не удалось декодировать JSON"
-////	}
-////
-////	{
-////		"error": "Содержание ошибки при добавлении выражения в TaskManager"
-////	}
-////
-////	500 Internal Server Error:
-////	{
-////		"error": "не удалось прочитать запрос"
-////	}
-////	{
-////		"error": "ошибка при кодировании ответа в JSON."
-////	}
-//func (h *Handlers) AddExpressionHandler(w http.ResponseWriter, r *http.Request) {
-//	if r.Method != http.MethodPost {
-//		http.Error(w, "метод не поддерживается", http.StatusMethodNotAllowed)
-//		return
-//	}
-//
-//	if r.Body == nil {
-//		http.Error(w, "пустое тело запроса", http.StatusBadRequest)
-//		return
-//	}
-//
-//	body, err := io.ReadAll(r.Body)
-//	if err != nil {
-//		http.Error(w, "не удалось прочитать запрос", http.StatusInternalServerError)
-//		return
-//	}
-//
-//	authHeader := r.Header.Get("Authorization")
-//	token := strings.TrimPrefix(authHeader, "Bearer ")
-//	claims, err := h.jwtManager.Validate(token)
-//	if err != nil {
-//		http.Error(w, err.Error(), http.StatusUnauthorized)
-//		return
-//	}
-//
-//	var requestBody models.ExpressionAdd
-//
-//	err = json.Unmarshal(body, &requestBody)
-//	if err != nil {
-//		http.Error(w, "не удалось декодировать JSON", http.StatusUnprocessableEntity)
-//		return
-//	}
-//
-//	trimmedBody := strings.TrimSpace(requestBody.Expression)
-//	if trimmedBody == "" {
-//		http.Error(w, "выражения обязательно", http.StatusBadRequest)
-//		return
-//	}
-//
-//	id, err, code := h.exprManager.AddExpression(r.Context(), trimmedBody, claims.Subject)
-//	if err != nil {
-//		http.Error(w, err.Error(), code)
-//		return
-//	}
-//
-//	response := map[string]int64{"id": id}
-//	w.Header().Set("Content-Type", "application/json")
-//	err = json.NewEncoder(w).Encode(response)
-//	if err != nil {
-//		http.Error(w, "ошибка при кодировании ответа в JSON", http.StatusInternalServerError)
-//		return
-//	}
-//
-//	logger.Log.Debugf("Выражение №%d пользователя №%d создано", id, claims.Subject)
-//}
-//
-//// GetExpressionsHandler обрабатывает GET-запросы на эндпоинт /api/v1/expressions.
-////
-//// Функция получает список всех выражений из TaskManager, преобразует их в формат ExpressionResponse
-//// и возвращает JSON-ответ со списком выражений.
-////
-//// Args:
-////
-////	w: http.ResponseWriter - интерфейс для записи HTTP-ответа.
-////	r: *http.Request - указатель на структуру, представляющую HTTP-запрос.
-////
-//// Responses:
-////
-////	200 OK:
-////	{
-////	  "expressions": [
-////	    {
-////				"id": "уникальный ID выражения",
-////				"status": "статус выражения (pending, processing, completed, error)",
-////				"result": "результат выражения (может отсутствовать, если вычисления не завершены)",
-////				"error": "ошибка при вычислении (может отсутствовать, если ошибки нет)"
-////	    },
-////	    ...
-////	  ]
-////	}
-////
-////	405 Method Not Allowed:
-////	{
-////		"error": "метод не поддерживается"
-////	}
-////
-////	500 Internal Server Error:
-////	{
-////		"error": "ошибка при кодировании ответа в JSON."
-////	}
-//func (h *Handlers) GetExpressionsHandler(w http.ResponseWriter, r *http.Request) {
-//	if r.Method != http.MethodGet {
-//		http.Error(w, "метод не поддерживается", http.StatusMethodNotAllowed)
-//		return
-//	}
-//
-//	authHeader := r.Header.Get("Authorization")
-//	token := strings.TrimPrefix(authHeader, "Bearer ")
-//	claims, err := h.jwtManager.Validate(token)
-//	if err != nil {
-//		http.Error(w, err.Error(), http.StatusUnauthorized)
-//		return
-//	}
-//
-//	expressions, err, code := h.exprManager.ReadExpressions(r.Context(), claims.Subject)
-//	if err != nil {
-//		http.Error(w, err.Error(), code)
-//		return
-//	}
-//
-//	var expressionResponses []models.ExpressionResponse
-//
-//	for _, expression := range expressions {
-//		expressionResponse := models.ExpressionResponse{
-//			ID:               expression.ID,
-//			Status:           expression.Status,
-//			ExpressionString: expression.ExpressionString,
-//			Result:           expression.Result,
-//			Error:            expression.Error,
-//		}
-//		expressionResponses = append(expressionResponses, expressionResponse)
-//	}
-//
-//	response := map[string][]models.ExpressionResponse{"expressions": expressionResponses}
-//
-//	w.Header().Set("Content-Type", "application/json")
-//	err = json.NewEncoder(w).Encode(response)
-//	if err != nil {
-//		http.Error(w, "ошибка при кодировании ответа в JSON", http.StatusInternalServerError)
-//		return
-//	}
-//
-//	logger.Log.Debugf("Список выражений пользователя №%d отправлен", claims.Subject)
-//}
-//
-//// GetExpressionHandler обрабатывает GET-запросы на эндпоинт /api/v1/expressions/{id}.
-////
-//// Функция получает выражение по указанному ID из TaskManager, преобразует его в формат ExpressionResponse
-//// и возвращает JSON-ответ с информацией о выражении.
-////
-//// Args:
-////
-////	w: http.ResponseWriter - интерфейс для записи HTTP-ответа.
-////	r: *http.Request - указатель на структуру, представляющую HTTP-запрос.
-////
-//// Path parameters:
-////
-////	id: ID выражения, которое нужно получить.
-////
-//// Responses:
-////
-////	200 OK:
-////	{
-////		"expression": {
-////			"id": "уникальный ID выражения",
-////			"status": "статус выражения (pending, processing, completed, error)",
-////			"result": "результат выражения (может отсутствовать, если вычисления не завершены)",
-////			"error": "ошибка при вычислении (может отсутствовать, если ошибки нет)"
-////		}
-////	}
-////
-////	404 Not Found:
-////	{
-////	  "error": "выражение не найдено"
-////	}
-////
-////	405 Method Not Allowed:
-////	{
-////		"error": "метод не поддерживается"
-////	}
-////
-////	500 Internal Server Error:
-////	{
-////	  "error": "ошибка при кодировании ответа в JSON"
-////	}
-//func (h *Handlers) GetExpressionHandler(w http.ResponseWriter, r *http.Request) {
-//	if r.Method != http.MethodGet {
-//		http.Error(w, "метод не поддерживается", http.StatusMethodNotAllowed)
-//		return
-//	}
-//
-//	authHeader := r.Header.Get("Authorization")
-//	token := strings.TrimPrefix(authHeader, "Bearer ")
-//	if _, err := h.jwtManager.Validate(token); err != nil {
-//		http.Error(w, err.Error(), http.StatusUnauthorized)
-//		return
-//	}
-//
-//	vars := mux.Vars(r)
-//	idStr := vars["id"]
-//	id, err := strconv.ParseInt(idStr, 10, 64)
-//	if err != nil {
-//		http.Error(w, "не удалось выражение в число", http.StatusBadRequest)
-//	}
-//
-//	expression, err, code := h.exprManager.ReadExpression(r.Context(), id)
-//	if err != nil {
-//		http.Error(w, err.Error(), code)
-//		return
-//	}
-//
-//	expressionResponse := models.ExpressionResponse{
-//		ID:               expression.ID,
-//		Status:           expression.Status,
-//		ExpressionString: expression.ExpressionString,
-//		Result:           expression.Result,
-//		Error:            expression.Error,
-//	}
-//
-//	response := map[string]models.ExpressionResponse{"expression": expressionResponse}
-//
-//	w.Header().Set("Content-Type", "application/json")
-//
-//	err = json.NewEncoder(w).Encode(response)
-//	if err != nil {
-//		http.Error(w, "ошибка при кодировании ответа в JSON", http.StatusInternalServerError)
-//		return
-//	}
-//
-//	logger.Log.Debugf("Выражение №%d пользователя №%d отправлено", expression.ID, id)
-//}
-//
-//// GetTaskHandler обрабатывает GET-запросы на эндпоинт /internal/task.
-////
-//// Функция получает задачу для выполнения из TaskManager и возвращает JSON-ответ с информацией о задаче.
-//// Этот эндпоинт предназначен для внутреннего использования агентом.
-////
-//// Args:
-////
-////	w: http.ResponseWriter - интерфейс для записи HTTP-ответа.
-////	r: *http.Request - указатель на структуру, представляющую HTTP-запрос.
-////
-//// Responses:
-////
-////	200 OK:
-////	{
-////		"id": "уникальный ID задачи",
-////		"operation": "операция, которую нужно выполнить (+, -, *, /, ^, u-)",
-////		"args": [], // 2 числа
-////		"operation_time": "время выполнения задачи",
-////		"expression": "ID выражения, составной частью которого является задача"
-////	}
-////
-////	404 Not Found:
-////		(пустой ответ) - Если нет доступных задач для выполнения
-////
-////	405 Method Not Allowed:
-////	{
-////		"error": "метод не поддерживается"
-////	}
-//func (h *Handlers) GetTaskHandler(w http.ResponseWriter, r *http.Request) {
-//	if r.Method != http.MethodGet {
-//		http.Error(w, "метод не поддерживается", http.StatusMethodNotAllowed)
-//		return
-//	}
-//
-//	task, err, code := h.exprManager.ReadTask(r.Context())
-//	if err != nil {
-//		http.Error(w, err.Error(), code)
-//		return
-//	}
-//	if task == nil {
-//		http.Error(w, "нет доступных задач", http.StatusNotFound)
-//		return
-//	}
-//
-//	response := models.TaskResponse{
-//		ID:             task.ID,
-//		Args:           task.Args,
-//		Operation:      task.Operation,
-//		Operation_time: task.OperationTime,
-//		Expression:     task.Expression,
-//	}
-//
-//	w.Header().Set("Content-Type", "application/json")
-//
-//	err = json.NewEncoder(w).Encode(response)
-//	if err != nil {
-//		http.Error(w, "ошибка при кодировании ответа в JSON", http.StatusInternalServerError)
-//		return
-//	}
-//
-//	logger.Log.Debugf("Задача №%d отправлена", task.ID)
-//}
-//
-//// CompleteTaskHandler обрабатывает POST-запросы на эндпоинт /internal/task.
-////
-//// Функция принимает JSON-запрос с ID выполненной задачи и результатом ее выполнения,
-//// обновляет информацию о задаче в TaskManager. Этот эндпоинт предназначен для внутреннего использования агентами.
-////
-//// Args:
-////
-////	w: http.ResponseWriter - интерфейс для записи HTTP-ответа.
-////	r: *http.Request - указатель на структуру, представляющую HTTP-запрос.
-////
-//// Request body (JSON):
-////
-////	{
-////		"expression": "ID выражения, частью которого являетя задача"
-////		"id": "ID выполненной задачи",
-////		"result": "результат выполнения задачи (число)",
-////		"error": "ошибка, возикшая при выполнении задачи" (может отсутсвовать)
-////	}
-////
-//// Responses:
-////
-////	200 OK:
-////	(пустой ответ) - В случае успешного завершения.
-////
-////
-////	400 Bad Request:
-////	{
-////		"error": "пустое тело запроса"
-////	}
-////
-////	404 Not Found:
-////	{
-////		"error": "задача не найдена"
-////	}
-////
-////	405 Method Not Allowed:
-////	{
-////		"error": "метод не поддерживается"
-////	}
-////
-////	422 Unprocessable Entity:
-////	{
-////		"error": "не удалось декодировать JSON"
-////	}
-////
-////	500 Internal Server Error:
-////	{
-////		"error": "не удалось прочитать тело запроса"
-////	}
-//func (h *Handlers) CompleteTaskHandler(w http.ResponseWriter, r *http.Request) {
-//	if r.Method != http.MethodPost {
-//		http.Error(w, "метод не поддерживается", http.StatusMethodNotAllowed)
-//		return
-//	}
-//
-//	if r.Body == nil {
-//		http.Error(w, "пустое тело запроса", http.StatusBadRequest)
-//		return
-//	}
-//
-//	body, err := io.ReadAll(r.Body)
-//	if err != nil {
-//		http.Error(w, "не удалось прочитать запрос", http.StatusInternalServerError)
-//		return
-//	}
-//
-//	var requestBody models.TaskCompleted
-//
-//	err = json.Unmarshal(body, &requestBody)
-//	if err != nil {
-//		http.Error(w, "не удалось декодировать JSON", http.StatusUnprocessableEntity)
-//		return
-//	}
-//
-//	if err, code := h.exprManager.CompleteTask(r.Context(), &requestBody); err != nil {
-//		http.Error(w, err.Error(), code)
-//		return
-//	}
-//
-//	w.WriteHeader(http.StatusOK)
-//
-//	logger.Log.Debugf("Задача %d успешно завершена", requestBody.ID)
-//}
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"github.com/OinkiePie/calc_3/config"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/handlers"
+	mm "github.com/OinkiePie/calc_3/orchestrator/internal/managers"
+	mj "github.com/OinkiePie/calc_3/pkg/jwt_manager"
+	"github.com/OinkiePie/calc_3/pkg/logger"
+	"github.com/OinkiePie/calc_3/pkg/models"
+	"github.com/gorilla/mux"
+	"io"
+	"log"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+)
+
+func init() {
+	// Отключаем выводы и инициализируем конфиг
+	log.SetOutput(io.Discard)
+	_ = config.InitConfig()
+	logger.InitLogger(logger.Options{Level: 6})
+}
+
+// Рекордер использующийся для вызывания
+// ошибки при кодировании JSON ответа
+type failingRecorder struct {
+	*httptest.ResponseRecorder
+}
+
+func (fr *failingRecorder) Write(_ []byte) (int, error) {
+	return 0, errors.New("error")
+}
+
+func TestRegisterUserHandler_CorrectUser_StatusCreated(t *testing.T) {
+	mockUM := new(mm.MockUserManager)
+
+	h := handlers.NewOrchestratorHandlers(mockUM, nil, nil)
+
+	mockUM.On("Register", mock.Anything, "user", "pass").
+		Return(int64(1), nil, http.StatusCreated)
+
+	requestBody := map[string]string{
+		"login":    "user",
+		"password": "pass",
+	}
+
+	body, err := json.Marshal(requestBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	h.RegisterUserHandler(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+	assert.Empty(t, w.Body.String())
+	mockUM.AssertExpectations(t)
+}
+
+func TestRegisterUserHandler_InvalidMethod_StatusMethodNotAllowed(t *testing.T) {
+	h := handlers.NewOrchestratorHandlers(nil, nil, nil)
+
+	tests := []struct {
+		method string
+	}{
+		{http.MethodGet},
+		{http.MethodPut},
+		{http.MethodDelete},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.method, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, "/register", nil)
+			w := httptest.NewRecorder()
+
+			h.RegisterUserHandler(w, req)
+
+			assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+			assert.Equal(t, "метод не поддерживается\n", w.Body.String())
+		})
+	}
+}
+
+func TestRegisterUserHandler_EmptyBody_StatusBadRequest(t *testing.T) {
+	h := handlers.NewOrchestratorHandlers(nil, nil, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/register", nil)
+	w := httptest.NewRecorder()
+
+	h.RegisterUserHandler(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, "пустое тело запроса\n", w.Body.String())
+}
+
+func TestRegisterUserHandler_MissingFields_StatusBadRequest(t *testing.T) {
+	h := handlers.NewOrchestratorHandlers(nil, nil, nil)
+
+	testCases := []struct {
+		name string
+		body map[string]string
+	}{
+		{"Missing Login", map[string]string{"password": "pass"}},
+		{"Missing Password", map[string]string{"login": "user"}},
+		{"Empty Login", map[string]string{"login": "", "password": "pass"}},
+		{"Empty Password", map[string]string{"login": "user", "password": ""}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			body, err := json.Marshal(tc.body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewReader(body))
+			w := httptest.NewRecorder()
+
+			h.RegisterUserHandler(w, req)
+
+			assert.Equal(t, http.StatusBadRequest, w.Code)
+			assert.Equal(t, "некорректный запрос\n", w.Body.String())
+		})
+	}
+}
+
+func TestRegisterUserHandler_InvalidJSON_StatusUnprocessableEntity(t *testing.T) {
+	h := handlers.NewOrchestratorHandlers(nil, nil, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewReader([]byte("{invalid}")))
+	w := httptest.NewRecorder()
+
+	h.RegisterUserHandler(w, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	assert.Equal(t, "некорректный запрос\n", w.Body.String())
+}
+
+func TestRegisterUserHandler_UserExists_StatusConflict(t *testing.T) {
+	mockUM := new(mm.MockUserManager)
+	h := handlers.NewOrchestratorHandlers(mockUM, nil, nil)
+
+	mockUM.On("Register", mock.Anything, "existing", "pass").
+		Return(int64(0), errors.New("логин testexisting уже существует"), http.StatusConflict)
+
+	requestBody := map[string]string{
+		"login":    "existing",
+		"password": "pass",
+	}
+	body, err := json.Marshal(requestBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	h.RegisterUserHandler(w, req)
+
+	assert.Equal(t, http.StatusConflict, w.Code)
+	assert.Equal(t, "логин testexisting уже существует\n", w.Body.String())
+	mockUM.AssertExpectations(t)
+}
+
+func TestRegisterUserHandler_InternalError_StatusInternalServerError(t *testing.T) {
+	mockUM := new(mm.MockUserManager)
+	h := handlers.NewOrchestratorHandlers(mockUM, nil, nil)
+
+	mockUM.On("Register", mock.Anything, "erroneous", "pass").
+		Return(int64(0), assert.AnError, http.StatusInternalServerError)
+
+	requestBody := map[string]string{
+		"login":    "erroneous",
+		"password": "pass",
+	}
+	body, err := json.Marshal(requestBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	h.RegisterUserHandler(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Contains(t, w.Body.String(), assert.AnError.Error())
+	mockUM.AssertExpectations(t)
+}
+
+func TestLoginUserHandler_CorrectUser_StatusOK(t *testing.T) {
+	mockUM := new(mm.MockUserManager)
+	h := handlers.NewOrchestratorHandlers(mockUM, nil, nil)
+
+	expectedToken := "test.jwt.token"
+	mockUM.On("Login", mock.Anything, "valid", "valid").
+		Return(expectedToken, int64(1), nil, http.StatusOK)
+
+	requestBody := map[string]string{
+		"login":    "valid",
+		"password": "valid",
+	}
+	body, err := json.Marshal(requestBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	h.LoginUserHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]string
+	err = json.NewDecoder(w.Body).Decode(&response)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedToken, response["token"])
+	mockUM.AssertExpectations(t)
+}
+
+func TestLoginUserHandler_InvalidMethod_StatusMethodNotAllowed(t *testing.T) {
+	h := handlers.NewOrchestratorHandlers(nil, nil, nil)
+
+	testCases := []struct {
+		method string
+	}{
+		{http.MethodGet},
+		{http.MethodPut},
+		{http.MethodDelete},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.method, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, "/login", nil)
+			w := httptest.NewRecorder()
+
+			h.LoginUserHandler(w, req)
+
+			assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+			assert.Equal(t, "метод не поддерживается\n", w.Body.String())
+		})
+	}
+}
+
+func TestLoginUserHandler_EmptyBody_StatusBadRequest(t *testing.T) {
+	h := handlers.NewOrchestratorHandlers(nil, nil, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/login", nil)
+	w := httptest.NewRecorder()
+
+	h.LoginUserHandler(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, "пустое тело запроса\n", w.Body.String())
+}
+
+func TestLoginUserHandler_InvalidJSON_StatusUnprocessableEntity(t *testing.T) {
+	h := handlers.NewOrchestratorHandlers(nil, nil, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader([]byte("{invalid}")))
+	w := httptest.NewRecorder()
+
+	h.LoginUserHandler(w, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	assert.Equal(t, "некорректный запрос\n", w.Body.String())
+}
+
+func TestLoginUserHandler_InvalidCredentials_StatusUnauthorized(t *testing.T) {
+	mockUM := new(mm.MockUserManager)
+	h := handlers.NewOrchestratorHandlers(mockUM, nil, nil)
+
+	expectedErr := errors.New("error")
+	mockUM.On("Login", mock.Anything, "invalid", "creds").
+		Return("", int64(0), expectedErr, http.StatusUnauthorized)
+
+	requestBody := map[string]string{
+		"login":    "invalid",
+		"password": "creds",
+	}
+	body, err := json.Marshal(requestBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	h.LoginUserHandler(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Contains(t, w.Body.String(), expectedErr.Error())
+	mockUM.AssertExpectations(t)
+}
+
+func TestLoginUserHandler_InternalError_StatusInternalServerError(t *testing.T) {
+	mockUM := new(mm.MockUserManager)
+	h := handlers.NewOrchestratorHandlers(mockUM, nil, nil)
+
+	expectedErr := errors.New("error")
+	mockUM.On("Login", mock.Anything, "erroneous", "erroneous").
+		Return("", int64(0), expectedErr, http.StatusInternalServerError)
+
+	requestBody := map[string]string{
+		"login":    "erroneous",
+		"password": "erroneous",
+	}
+	body, err := json.Marshal(requestBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	h.LoginUserHandler(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Contains(t, w.Body.String(), expectedErr.Error())
+	mockUM.AssertExpectations(t)
+}
+
+func TestLoginUserHandler_JSONEncodeError_StatusInternalServerError(t *testing.T) {
+	mockUM := new(mm.MockUserManager)
+	h := handlers.NewOrchestratorHandlers(mockUM, nil, nil)
+
+	mockUM.On("Login", mock.Anything, "erroneous", "erroneous").
+		Return("token", int64(1), nil, http.StatusOK)
+
+	requestBody := map[string]string{
+		"login":    "erroneous",
+		"password": "erroneous",
+	}
+	body, err := json.Marshal(requestBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(body))
+	w := &failingRecorder{ResponseRecorder: httptest.NewRecorder()}
+
+	h.LoginUserHandler(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	mockUM.AssertExpectations(t)
+}
+
+func TestLogoutUserHandler_CorrectToken_StatusOK(t *testing.T) {
+	mockUM := new(mm.MockUserManager)
+	mockJWT := new(mj.MockJWTManager)
+	h := handlers.NewOrchestratorHandlers(mockUM, nil, mockJWT)
+
+	testClaims := mj.Claims{
+		JWTID:   "session123",
+		Subject: 1,
+	}
+	mockJWT.On("Validate", "valid.token").Return(testClaims, nil)
+	mockUM.On("Logout", mock.Anything, "session123").Return(nil, http.StatusOK)
+
+	req := httptest.NewRequest(http.MethodGet, "/logout", nil)
+	req.Header.Set("Authorization", "Bearer valid.token")
+	w := httptest.NewRecorder()
+
+	h.LogoutUserHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Empty(t, w.Body.String())
+	mockUM.AssertExpectations(t)
+	mockJWT.AssertExpectations(t)
+}
+
+func TestLogoutUserHandler_InvalidMethod_StatusMethodNotAllowed(t *testing.T) {
+	h := handlers.NewOrchestratorHandlers(nil, nil, nil)
+
+	testCases := []struct {
+		method string
+	}{
+		{http.MethodPost},
+		{http.MethodPut},
+		{http.MethodDelete},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.method, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, "/logout", nil)
+			w := httptest.NewRecorder()
+
+			h.LogoutUserHandler(w, req)
+
+			assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+			assert.Equal(t, "метод не поддерживается\n", w.Body.String())
+		})
+	}
+}
+
+func TestLogoutUserHandler_LogoutError_StatusInternalServerError(t *testing.T) {
+	mockUM := new(mm.MockUserManager)
+	mockJWT := new(mj.MockJWTManager)
+	h := handlers.NewOrchestratorHandlers(mockUM, nil, mockJWT)
+
+	testClaims := mj.Claims{
+		JWTID:   "session123",
+		Subject: 1,
+	}
+	mockJWT.On("Validate", "valid.token").Return(testClaims, nil)
+	mockUM.On("Logout", mock.Anything, "session123").Return(errors.New("error"), http.StatusInternalServerError)
+
+	req := httptest.NewRequest(http.MethodGet, "/logout", nil)
+	req.Header.Set("Authorization", "Bearer valid.token")
+	w := httptest.NewRecorder()
+
+	h.LogoutUserHandler(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, "error\n", w.Body.String())
+	mockUM.AssertExpectations(t)
+	mockJWT.AssertExpectations(t)
+}
+
+func TestDeleteUserHandler_CorrectUser_StatusOK(t *testing.T) {
+	mockUM := new(mm.MockUserManager)
+	h := handlers.NewOrchestratorHandlers(mockUM, nil, nil)
+
+	mockUM.On("Delete", mock.Anything, "user", "pass").
+		Return(int64(1), nil, http.StatusOK)
+
+	requestBody := map[string]string{
+		"login":    "user",
+		"password": "pass",
+	}
+	body, err := json.Marshal(requestBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/delete", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	h.DeleteUserHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Empty(t, w.Body.String())
+	mockUM.AssertExpectations(t)
+}
+
+func TestDeleteUserHandler_InvalidMethod_StatusMethodNotAllowed(t *testing.T) {
+	h := handlers.NewOrchestratorHandlers(nil, nil, nil)
+
+	testCases := []struct {
+		name   string
+		method string
+	}{
+		{"GET", http.MethodGet},
+		{"PUT", http.MethodPut},
+		{"DELETE", http.MethodDelete},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, "/delete", nil)
+			w := httptest.NewRecorder()
+
+			h.DeleteUserHandler(w, req)
+
+			assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+			assert.Equal(t, "метод не поддерживается\n", w.Body.String())
+		})
+	}
+}
+
+func TestDeleteUserHandler_EmptyBody_StatusBadRequest(t *testing.T) {
+	h := handlers.NewOrchestratorHandlers(nil, nil, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/delete", nil)
+	w := httptest.NewRecorder()
+
+	h.DeleteUserHandler(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, "пустое тело запроса\n", w.Body.String())
+}
+
+func TestDeleteUserHandler_InvalidJSON_StatusUnprocessableEntity(t *testing.T) {
+	h := handlers.NewOrchestratorHandlers(nil, nil, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/delete", bytes.NewReader([]byte("{invalid}")))
+	w := httptest.NewRecorder()
+
+	h.DeleteUserHandler(w, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	assert.Equal(t, "некорректный запрос\n", w.Body.String())
+}
+
+func TestDeleteUserHandler_MissingFields_StatusBadRequest(t *testing.T) {
+	h := handlers.NewOrchestratorHandlers(nil, nil, nil)
+
+	testCases := []struct {
+		name string
+		body map[string]string
+	}{
+		{"Missing Login", map[string]string{"password": "pass"}},
+		{"Missing Password", map[string]string{"login": "user"}},
+		{"Empty Login", map[string]string{"login": "", "password": "pass"}},
+		{"Empty Password", map[string]string{"login": "user", "password": ""}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			body, _ := json.Marshal(tc.body)
+			req := httptest.NewRequest(http.MethodPost, "/delete", bytes.NewReader(body))
+			w := httptest.NewRecorder()
+
+			h.DeleteUserHandler(w, req)
+
+			assert.Equal(t, http.StatusBadRequest, w.Code)
+			assert.Equal(t, "некорректный запрос\n", w.Body.String())
+		})
+	}
+}
+
+func TestDeleteUserHandler_InvalidCredentials_StatusUnauthorized(t *testing.T) {
+	mockUM := new(mm.MockUserManager)
+	h := handlers.NewOrchestratorHandlers(mockUM, nil, nil)
+
+	mockUM.On("Delete", mock.Anything, "erroneous", "erroneous").
+		Return(int64(0), errors.New("error"), http.StatusUnauthorized)
+
+	reqBody := map[string]string{
+		"login":    "erroneous",
+		"password": "erroneous",
+	}
+	body, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest(http.MethodPost, "/delete", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	h.DeleteUserHandler(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Equal(t, "error\n", w.Body.String())
+	mockUM.AssertExpectations(t)
+}
+
+func TestDeleteUserHandler_InternalError_StatusInternalServerError(t *testing.T) {
+	mockUM := new(mm.MockUserManager)
+	h := handlers.NewOrchestratorHandlers(mockUM, nil, nil)
+
+	mockUM.On("Delete", mock.Anything, "erroneous", "erroneous").
+		Return(int64(0), errors.New("error"), http.StatusInternalServerError)
+
+	reqBody := map[string]string{
+		"login":    "erroneous",
+		"password": "erroneous",
+	}
+	body, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest(http.MethodPost, "/delete", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	h.DeleteUserHandler(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, "error\n", w.Body.String())
+	mockUM.AssertExpectations(t)
+}
+
+func TestAddExpressionHandler_CorrectExpression_StatusOK(t *testing.T) {
+	mockEM := new(mm.MockExpressionManager)
+	mockJWT := new(mj.MockJWTManager)
+	h := handlers.NewOrchestratorHandlers(nil, mockEM, mockJWT)
+
+	testClaims := mj.Claims{Subject: 1}
+	mockJWT.On("Validate", "valid.token").Return(testClaims, nil)
+	mockEM.On("AddExpression", mock.Anything, "2+2", testClaims.Subject).
+		Return(int64(1), nil, http.StatusCreated)
+
+	reqBody := map[string]string{"expression": "2+2"}
+	body, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest(http.MethodPost, "/expressions", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer valid.token")
+	w := httptest.NewRecorder()
+
+	h.AddExpressionHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]int64
+	err := json.NewDecoder(w.Body).Decode(&response)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), response["id"])
+	mockEM.AssertExpectations(t)
+	mockJWT.AssertExpectations(t)
+}
+
+func TestAddExpressionHandler_InvalidMethod_StatusMethodNotAllowed(t *testing.T) {
+	h := handlers.NewOrchestratorHandlers(nil, nil, nil)
+
+	testCases := []struct {
+		method string
+	}{
+		{http.MethodGet},
+		{http.MethodPut},
+		{http.MethodDelete},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.method, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, "/expressions", nil)
+			w := httptest.NewRecorder()
+
+			h.AddExpressionHandler(w, req)
+
+			assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+			assert.Equal(t, "метод не поддерживается\n", w.Body.String())
+		})
+	}
+}
+
+func TestAddExpressionHandler_EmptyBody_StatusBadRequest(t *testing.T) {
+	h := handlers.NewOrchestratorHandlers(nil, nil, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/expressions", nil)
+	w := httptest.NewRecorder()
+
+	h.AddExpressionHandler(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, "пустое тело запроса\n", w.Body.String())
+}
+
+func TestAddExpressionHandler_InvalidJSON_StatusUnprocessableEntity(t *testing.T) {
+	mockJWT := new(mj.MockJWTManager)
+	h := handlers.NewOrchestratorHandlers(nil, nil, mockJWT)
+	mockJWT.On("Validate", "valid.token").Return(mj.Claims{Subject: 1}, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/expressions", bytes.NewReader([]byte("{invalid}")))
+	req.Header.Set("Authorization", "Bearer valid.token")
+	w := httptest.NewRecorder()
+
+	h.AddExpressionHandler(w, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	assert.Equal(t, "некорректный запрос\n", w.Body.String())
+	mockJWT.AssertExpectations(t)
+}
+
+func TestAddExpressionHandler_EmptyExpression_StatusBadRequest(t *testing.T) {
+	mockJWT := new(mj.MockJWTManager)
+	h := handlers.NewOrchestratorHandlers(nil, nil, mockJWT)
+
+	mockJWT.On("Validate", "valid.token").Return(mj.Claims{Subject: 1}, nil)
+
+	testCases := []struct {
+		name string
+		body string
+	}{
+		{"Empty", `{"expression": ""}`},
+		{"Spaces", `{"expression": "   "}`},
+		{"Missing", `{}`},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/expressions", strings.NewReader(tc.body))
+			req.Header.Set("Authorization", "Bearer valid.token")
+			w := httptest.NewRecorder()
+
+			h.AddExpressionHandler(w, req)
+
+			assert.Equal(t, http.StatusBadRequest, w.Code)
+			assert.Equal(t, "выражения обязательно\n", w.Body.String())
+		})
+	}
+}
+
+func TestAddExpressionHandler_InternalError_StatusInternalServerError(t *testing.T) {
+	mockEM := new(mm.MockExpressionManager)
+	mockJWT := new(mj.MockJWTManager)
+	h := handlers.NewOrchestratorHandlers(nil, mockEM, mockJWT)
+
+	testClaims := mj.Claims{Subject: 1}
+	mockJWT.On("Validate", "valid.token").Return(testClaims, nil)
+	mockEM.On("AddExpression", mock.Anything, "error", int64(1)).
+		Return(int64(0), errors.New("error"), http.StatusInternalServerError)
+
+	reqBody := map[string]string{"expression": "error"}
+	body, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest(http.MethodPost, "/expressions", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer valid.token")
+	w := httptest.NewRecorder()
+
+	h.AddExpressionHandler(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, "error\n", w.Body.String())
+	mockJWT.AssertExpectations(t)
+	mockEM.AssertExpectations(t)
+}
+
+func TestAddExpressionHandler_JSONEncodeError_StatusInternalServerError(t *testing.T) {
+	mockEM := new(mm.MockExpressionManager)
+	mockJWT := new(mj.MockJWTManager)
+	h := handlers.NewOrchestratorHandlers(nil, mockEM, mockJWT)
+
+	testClaims := mj.Claims{Subject: 1}
+	mockJWT.On("Validate", "valid.token").Return(testClaims, nil)
+	mockEM.On("AddExpression", mock.Anything, "2+2", int64(1)).
+		Return(int64(1), nil, http.StatusCreated)
+
+	reqBody := map[string]string{"expression": "2+2"}
+	body, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest(http.MethodPost, "/expressions", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer valid.token")
+	w := &failingRecorder{ResponseRecorder: httptest.NewRecorder()}
+
+	h.AddExpressionHandler(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	mockJWT.AssertExpectations(t)
+	mockEM.AssertExpectations(t)
+}
+
+func TestGetExpressionsHandler_CorrectToken_StatusOK(t *testing.T) {
+	mockEM := new(mm.MockExpressionManager)
+	mockJWT := new(mj.MockJWTManager)
+	h := handlers.NewOrchestratorHandlers(nil, mockEM, mockJWT)
+
+	testClaims := mj.Claims{Subject: 1}
+	mockJWT.On("Validate", "valid.token").Return(testClaims, nil)
+
+	expectedExpressions := []*models.Expression{
+		{
+			ID:               1,
+			ExpressionString: "2+2",
+		},
+	}
+	mockEM.On("ReadExpressions", mock.Anything, int64(1)).
+		Return(expectedExpressions, nil, http.StatusOK)
+
+	req := httptest.NewRequest(http.MethodGet, "/expressions", nil)
+	req.Header.Set("Authorization", "Bearer valid.token")
+	w := httptest.NewRecorder()
+
+	h.GetExpressionsHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string][]models.ExpressionResponse
+	err := json.NewDecoder(w.Body).Decode(&response)
+	assert.NoError(t, err)
+	assert.Len(t, response["expressions"], 1)
+	assert.Equal(t, "2+2", response["expressions"][0].ExpressionString)
+	mockEM.AssertExpectations(t)
+	mockJWT.AssertExpectations(t)
+}
+
+func TestGetExpressionsHandler_InvalidMethod_StatusMethodNotAllowed(t *testing.T) {
+	h := handlers.NewOrchestratorHandlers(nil, nil, nil)
+
+	testCases := []struct {
+		method string
+	}{
+		{http.MethodPost},
+		{http.MethodPut},
+		{http.MethodDelete},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.method, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, "/expressions", nil)
+			w := httptest.NewRecorder()
+
+			h.GetExpressionsHandler(w, req)
+
+			assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+			assert.Equal(t, "метод не поддерживается\n", w.Body.String())
+		})
+	}
+}
+
+func TestGetExpressionsHandler_ReadExpressionsError_StatusInternalServerError(t *testing.T) {
+	mockEM := new(mm.MockExpressionManager)
+	mockJWT := new(mj.MockJWTManager)
+	h := handlers.NewOrchestratorHandlers(nil, mockEM, mockJWT)
+
+	testClaims := mj.Claims{Subject: 1}
+	mockJWT.On("Validate", "valid.token").Return(testClaims, nil)
+	mockEM.On("ReadExpressions", mock.Anything, int64(1)).
+		Return(([]*models.Expression)(nil), errors.New("error"), http.StatusInternalServerError)
+
+	req := httptest.NewRequest(http.MethodGet, "/expressions", nil)
+	req.Header.Set("Authorization", "Bearer valid.token")
+	w := httptest.NewRecorder()
+
+	h.GetExpressionsHandler(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, "error\n", w.Body.String())
+	mockEM.AssertExpectations(t)
+	mockJWT.AssertExpectations(t)
+}
+
+func TestGetExpressionsHandler_EmptyExpressions_StatusOK(t *testing.T) {
+	mockEM := new(mm.MockExpressionManager)
+	mockJWT := new(mj.MockJWTManager)
+	h := handlers.NewOrchestratorHandlers(nil, mockEM, mockJWT)
+
+	testClaims := mj.Claims{Subject: 1}
+	mockJWT.On("Validate", "valid.token").Return(testClaims, nil)
+	mockEM.On("ReadExpressions", mock.Anything, int64(1)).
+		Return([]*models.Expression{}, nil, http.StatusOK)
+
+	req := httptest.NewRequest(http.MethodGet, "/expressions", nil)
+	req.Header.Set("Authorization", "Bearer valid.token")
+	w := httptest.NewRecorder()
+
+	h.GetExpressionsHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string][]models.ExpressionResponse
+	err := json.NewDecoder(w.Body).Decode(&response)
+	assert.NoError(t, err)
+	assert.Empty(t, response["expressions"])
+	mockEM.AssertExpectations(t)
+	mockJWT.AssertExpectations(t)
+}
+
+func TestGetExpressionsHandler_JSONEncodeError_StatusInternalServerError(t *testing.T) {
+	mockEM := new(mm.MockExpressionManager)
+	mockJWT := new(mj.MockJWTManager)
+	h := handlers.NewOrchestratorHandlers(nil, mockEM, mockJWT)
+
+	testClaims := mj.Claims{Subject: 1}
+	mockJWT.On("Validate", "valid.token").Return(testClaims, nil)
+
+	mockEM.On("ReadExpressions", mock.Anything, int64(1)).
+		Return([]*models.Expression{{ID: 1}}, nil, http.StatusOK)
+
+	req := httptest.NewRequest(http.MethodGet, "/expressions", nil)
+	req.Header.Set("Authorization", "Bearer valid.token")
+	w := &failingRecorder{ResponseRecorder: httptest.NewRecorder()}
+
+	h.GetExpressionsHandler(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	mockEM.AssertExpectations(t)
+	mockJWT.AssertExpectations(t)
+}
+
+func TestGetExpressionHandler_CorrectID_StatusOK(t *testing.T) {
+	mockEM := new(mm.MockExpressionManager)
+	mockJWT := new(mj.MockJWTManager)
+	h := handlers.NewOrchestratorHandlers(nil, mockEM, mockJWT)
+
+	testClaims := mj.Claims{Subject: 1}
+	mockJWT.On("Validate", "valid.token").Return(testClaims, nil)
+
+	expectedExpression := &models.Expression{
+		ID:               1,
+		UserID:           1,
+		Status:           "completed",
+		ExpressionString: "2+2",
+	}
+	mockEM.On("ReadExpression", mock.Anything, int64(1)).
+		Return(expectedExpression, nil, http.StatusOK)
+
+	req := httptest.NewRequest(http.MethodGet, "/expressions/1", nil)
+	req.Header.Set("Authorization", "Bearer valid.token")
+
+	vars := map[string]string{"id": "1"}
+	req = mux.SetURLVars(req, vars)
+
+	w := httptest.NewRecorder()
+
+	h.GetExpressionHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]models.ExpressionResponse
+	err := json.NewDecoder(w.Body).Decode(&response)
+	assert.NoError(t, err)
+	assert.Equal(t, "2+2", response["expression"].ExpressionString)
+	mockEM.AssertExpectations(t)
+	mockJWT.AssertExpectations(t)
+}
+
+func TestGetExpressionHandler_InvalidMethod_StatusMethodNotAllowed(t *testing.T) {
+	h := handlers.NewOrchestratorHandlers(nil, nil, nil)
+
+	testCases := []struct {
+		method string
+	}{
+		{http.MethodPost},
+		{http.MethodPut},
+		{http.MethodDelete},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.method, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, "/expressions/1", nil)
+			w := httptest.NewRecorder()
+
+			h.GetExpressionHandler(w, req)
+
+			assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+			assert.Equal(t, "метод не поддерживается\n", w.Body.String())
+
+		})
+	}
+}
+
+func TestGetExpressionHandler_InvalidID_StatusBadRequest(t *testing.T) {
+	mockEM := new(mm.MockExpressionManager)
+	mockJWT := new(mj.MockJWTManager)
+	h := handlers.NewOrchestratorHandlers(nil, mockEM, mockJWT)
+	mockJWT.On("Validate", "valid.token").Return(mj.Claims{}, nil)
+
+	testCases := []struct {
+		name string
+		id   string
+	}{
+		{"NotNumber", "abc"},
+		{"Empty", ""},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/expressions/"+tc.id, nil)
+			req.Header.Set("Authorization", "Bearer valid.token")
+			req = mux.SetURLVars(req, map[string]string{"id": tc.id})
+			w := httptest.NewRecorder()
+
+			h.GetExpressionHandler(w, req)
+
+			assert.Equal(t, http.StatusBadRequest, w.Code)
+			assert.Equal(t, "не удалось перевести выражение в число\n", w.Body.String())
+		})
+	}
+}
+
+func TestGetExpressionHandler_NotFound_StatusNotFound(t *testing.T) {
+	mockEM := new(mm.MockExpressionManager)
+	mockJWT := new(mj.MockJWTManager)
+	h := handlers.NewOrchestratorHandlers(nil, mockEM, mockJWT)
+
+	testClaims := mj.Claims{Subject: 1}
+	mockJWT.On("Validate", "valid.token").Return(testClaims, nil)
+	mockEM.On("ReadExpression", mock.Anything, int64(999)).
+		Return((*models.Expression)(nil), errors.New("error"), http.StatusNotFound)
+
+	req := httptest.NewRequest(http.MethodGet, "/expressions/999", nil)
+	req.Header.Set("Authorization", "Bearer valid.token")
+	req = mux.SetURLVars(req, map[string]string{"id": "999"})
+	w := httptest.NewRecorder()
+
+	h.GetExpressionHandler(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Equal(t, "error\n", w.Body.String())
+	mockEM.AssertExpectations(t)
+	mockJWT.AssertExpectations(t)
+}
+
+func TestGetExpressionHandler_ForbiddenExpression_StatusForbidden(t *testing.T) {
+	mockEM := new(mm.MockExpressionManager)
+	mockJWT := new(mj.MockJWTManager)
+	h := handlers.NewOrchestratorHandlers(nil, mockEM, mockJWT)
+
+	testClaims := mj.Claims{Subject: 1}
+	mockJWT.On("Validate", "valid.token").Return(testClaims, nil)
+
+	expression := &models.Expression{
+		ID:     1,
+		UserID: 2,
+	}
+	mockEM.On("ReadExpression", mock.Anything, int64(1)).
+		Return(expression, nil, http.StatusOK)
+
+	req := httptest.NewRequest(http.MethodGet, "/expressions/1", nil)
+	req.Header.Set("Authorization", "Bearer valid.token")
+	req = mux.SetURLVars(req, map[string]string{"id": "1"})
+	w := httptest.NewRecorder()
+
+	h.GetExpressionHandler(w, req)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+	assert.Equal(t, "невозможно получить выражение другого пользователя\n", w.Body.String())
+	mockEM.AssertExpectations(t)
+	mockJWT.AssertExpectations(t)
+}
+
+func TestGetExpressionHandler_InternalError_StatusInternalServerError(t *testing.T) {
+	mockEM := new(mm.MockExpressionManager)
+	mockJWT := new(mj.MockJWTManager)
+	h := handlers.NewOrchestratorHandlers(nil, mockEM, mockJWT)
+
+	testClaims := mj.Claims{Subject: 1}
+	mockJWT.On("Validate", "valid.token").Return(testClaims, nil)
+	mockEM.On("ReadExpression", mock.Anything, int64(1)).
+		Return((*models.Expression)(nil), errors.New("error"), http.StatusInternalServerError)
+
+	req := httptest.NewRequest(http.MethodGet, "/expressions/1", nil)
+	req.Header.Set("Authorization", "Bearer valid.token")
+	req = mux.SetURLVars(req, map[string]string{"id": "1"})
+	w := httptest.NewRecorder()
+
+	h.GetExpressionHandler(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, "error\n", w.Body.String())
+	mockEM.AssertExpectations(t)
+	mockJWT.AssertExpectations(t)
+}
+
+func TestGetExpressionHandler_JSONEncodeError_StatusInternalServerError(t *testing.T) {
+	mockEM := new(mm.MockExpressionManager)
+	mockJWT := new(mj.MockJWTManager)
+	h := handlers.NewOrchestratorHandlers(nil, mockEM, mockJWT)
+
+	testClaims := mj.Claims{Subject: 1}
+	mockJWT.On("Validate", "valid.token").Return(testClaims, nil)
+
+	mockEM.On("ReadExpression", mock.Anything, int64(1)).
+		Return(&models.Expression{UserID: 1}, nil, http.StatusOK)
+
+	req := httptest.NewRequest(http.MethodGet, "/expressions/1", nil)
+	req.Header.Set("Authorization", "Bearer valid.token")
+	req = mux.SetURLVars(req, map[string]string{"id": "1"})
+	w := &failingRecorder{ResponseRecorder: httptest.NewRecorder()}
+
+	h.GetExpressionHandler(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	mockEM.AssertExpectations(t)
+	mockJWT.AssertExpectations(t)
+}

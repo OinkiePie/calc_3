@@ -42,18 +42,18 @@ func NewOrchestratorRouter(provider *providers.Providers) *mux.Router {
 
 	router.Use(middleware.EnableCORS)
 	// API endpoints (внешние конечные точки, доступные клиентам)
-	router.HandleFunc("/api/register", handler.RegisterUserHandler).Methods("POST")
-	router.HandleFunc("/api/login", handler.LoginUserHandler).Methods("POST")
+	router.HandleFunc("/api/register", handler.RegisterUserHandler)
+	router.HandleFunc("/api/login", handler.LoginUserHandler)
 
 	// Protected API endpoints (внешние конечные точки, доступные только клиентам с авторизацией)
 	authRouter := router.PathPrefix("/api/p/").Subrouter()
 	authRouter.Use(middleware.EnableAuth)
 
-	authRouter.HandleFunc("/logout", handler.LogoutUserHandler).Methods("GET")
-	authRouter.HandleFunc("/delete", handler.DeleteUserHandler).Methods("POST")
-	authRouter.HandleFunc("/calculate", handler.AddExpressionHandler).Methods("POST")
-	authRouter.HandleFunc("/expressions", handler.GetExpressionsHandler).Methods("GET")
-	authRouter.HandleFunc("/expressions/{id}", handler.GetExpressionHandler).Methods("GET")
+	authRouter.HandleFunc("/logout", handler.LogoutUserHandler)
+	authRouter.HandleFunc("/delete", handler.DeleteUserHandler)
+	authRouter.HandleFunc("/calculate", handler.AddExpressionHandler)
+	authRouter.HandleFunc("/expressions", handler.GetExpressionsHandler)
+	authRouter.HandleFunc("/expressions/{id}", handler.GetExpressionHandler)
 
 	return router
 }

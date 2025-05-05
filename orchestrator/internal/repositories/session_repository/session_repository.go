@@ -1,4 +1,4 @@
-package repositories_users
+package session_repository
 
 import (
 	"context"

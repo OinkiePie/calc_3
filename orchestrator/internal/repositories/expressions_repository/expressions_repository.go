@@ -1,4 +1,4 @@
-package repositories_expressions
+package expressions_repository
 
 import (
 	"context"
@@ -135,7 +135,7 @@ func (r *ExpressionsRepository) ReadExpressionByID(ctx context.Context, tx *sql.
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errors.New("выражение не найдено"), http.StatusNotFound
 		}
-		return nil, fmt.Errorf("не удалось получать выражение: %w", err), http.StatusInternalServerError
+		return nil, fmt.Errorf("не удалось получить выражение: %w", err), http.StatusInternalServerError
 	}
 
 	tasks, err, code := r.taskRepo.ReadTasksByExpressionID(ctx, tx, expr.ID)

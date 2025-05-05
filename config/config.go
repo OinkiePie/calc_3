@@ -87,9 +87,10 @@ func defaultConfig() *Config {
 			TIME_POWER_MS:          0,
 		},
 		Middleware: MiddlewareConfig{
-
-			SECRET_KEY:  "secret",
-			AllowOrigin: []string{"*"},
+			SESSION_CLEAR_MIN: 10,
+			TOKEN_TTL_MIN:     10,
+			SECRET_KEY:        "secret",
+			AllowOrigin:       []string{"*"},
 		},
 		Logger: LoggerConfig{
 			Level:        0,

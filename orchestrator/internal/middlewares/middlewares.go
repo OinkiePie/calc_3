@@ -2,16 +2,17 @@ package middlewares
 
 import (
 	"github.com/OinkiePie/calc_3/orchestrator/internal/managers"
-	"github.com/OinkiePie/calc_3/pkg/jwt"
+	"github.com/OinkiePie/calc_3/pkg/jwt_manager"
 	"net/http"
 	"strings"
 )
 
 // Middleware содержит middleware-функции для обработки HTTP-запросов.
 type Middleware struct {
-	allowOrigin []string // Список разрешенных источников для CORS
-	userManager managers.UserManagerInterface
-	jwtManager  *jwt.JWTManager // Менеджер для работы с JWT-токенами
+	allowOrigin []string                        // Список разрешенных источников для CORS
+	allAllowed  bool                            // Флаг указывающий на разрешение всех источников
+	userManager managers.UserManagerInterface   // Менеджер пользователей
+	jwtManager  jwt_manager.JWTManagerInterface // Менеджер для работы с JWT-токенами
 }
 
 // NewOrchestratorMiddlewares создает новый экземпляр Middleware.
@@ -24,9 +25,17 @@ type Middleware struct {
 // Returns:
 //
 //	*Middleware - Новый экземпляр Middleware
-func NewOrchestratorMiddlewares(allowOrigin []string, userManager managers.UserManagerInterface, jwtManager *jwt.JWTManager) *Middleware {
+func NewOrchestratorMiddlewares(allowOrigin []string, userManager managers.UserManagerInterface, jwtManager jwt_manager.JWTManagerInterface) *Middleware {
+	allAllowed := false
+	for _, allowedOrigin := range allowOrigin {
+		if allowedOrigin == "*" {
+			allAllowed = true
+			break
+		}
+	}
 	return &Middleware{
 		allowOrigin: allowOrigin,
+		allAllowed:  allAllowed,
 		userManager: userManager,
 		jwtManager:  jwtManager,
 	}
@@ -50,13 +59,13 @@ func (m *Middleware) EnableAuth(next http.Handler) http.Handler {
 
 		// Проверяем, что заголовок Authorization присутствует.
 		if authHeader == "" {
-			http.Error(w, "Отсутствует заголовок Authorization", http.StatusUnauthorized) // 401
+			http.Error(w, "Отсутствует заголовок Authorization", http.StatusUnauthorized)
 			return
 		}
 
 		// Проверяем, что заголовок начинается с префикса (например, "Bearer ").
 		if !strings.HasPrefix(authHeader, "Bearer ") {
-			http.Error(w, "Неверный формат заголовка Authorization", http.StatusUnauthorized) // 401
+			http.Error(w, "Неверный формат заголовка Authorization", http.StatusUnauthorized)
 			return
 		}
 
@@ -65,7 +74,7 @@ func (m *Middleware) EnableAuth(next http.Handler) http.Handler {
 
 		// Проверяем, что API-ключ не пустой.
 		if token == "" {
-			http.Error(w, "Пустой ключ авторизации", http.StatusUnauthorized) // 401
+			http.Error(w, "Пустой ключ авторизации", http.StatusUnauthorized)
 			return
 		}
 
@@ -107,19 +116,33 @@ func (m *Middleware) EnableAuth(next http.Handler) http.Handler {
 func (m *Middleware) EnableCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
+
+		if r.Method == "OPTIONS" {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
+			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Authorization")
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
 		if origin != "" {
-			// Проверяем, есть ли origin в списке разрешенных
-			allowed := false
-			for _, allowedOrigin := range m.allowOrigin {
-				if strings.EqualFold(origin, allowedOrigin) { //Сравнение без учета регистра
-					allowed = true
-					break
+			allowed := m.allAllowed
+			if !allowed {
+				for _, allowedOrigin := range m.allowOrigin {
+					if strings.EqualFold(origin, allowedOrigin) {
+						allowed = true
+						break
+					}
 				}
 			}
+
 			if allowed {
-				// Если origin разрешен, устанавливаем заголовок Access-Control-Allow-Origin
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-				// Дополнительные заголовки CORS
+				if m.allAllowed {
+					w.Header().Set("Access-Control-Allow-Origin", "*")
+				} else {
+					w.Header().Set("Access-Control-Allow-Origin", origin)
+					w.Header().Set("Vary", "Origin")
+				}
 				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
 				w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Authorization")
 			}

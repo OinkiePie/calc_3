@@ -4,7 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/repositories_expressions"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/expressions_repository"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/tasks_repository"
 	"github.com/OinkiePie/calc_3/orchestrator/internal/task_splitter"
 	"github.com/OinkiePie/calc_3/pkg/models"
 	"net/http"
@@ -12,9 +13,9 @@ import (
 
 // ExpressionManager предоставляет методы для управления математическими выражениями.
 type ExpressionManager struct {
-	db       *sql.DB                                         // Подключение к базе данных
-	exprRepo *repositories_expressions.ExpressionsRepository // Репозиторий выражений
-	taskRepo *repositories_expressions.TasksRepository       // Репозиторий задач
+	db       *sql.DB                                       // Подключение к базе данных
+	exprRepo *expressions_repository.ExpressionsRepository // Репозиторий выражений
+	taskRepo *tasks_repository.TasksRepository             // Репозиторий задач
 }
 
 // NewExpressionManager создает новый экземпляр менеджера выражений.
@@ -30,8 +31,8 @@ type ExpressionManager struct {
 //	*ExpressionManager - Новый экземпляр менеджера
 func NewExpressionManager(
 	db *sql.DB,
-	exprRepo *repositories_expressions.ExpressionsRepository,
-	taskRepo *repositories_expressions.TasksRepository,
+	exprRepo *expressions_repository.ExpressionsRepository,
+	taskRepo *tasks_repository.TasksRepository,
 ) *ExpressionManager {
 	return &ExpressionManager{
 		db:       db,
@@ -44,18 +45,18 @@ func NewExpressionManager(
 //
 // Args:
 //
-//	ctx: context.Context - Контекст выполнения
-//	expressionString: string - Строка с математическим выражением
-//	claims: int64 - ID пользователя-владельца
+//	ctx: context.Context - Контекст выполнения.
+//	expressionString: string - Строка с математическим выражением.
+//	claims: int64 - ID пользователя-владельца.
 //
 // Returns:
 //
-//	int64 - ID созданного выражения
-//	error - Ошибка выполнения
+//	int64 - ID созданного выражения.
+//	error - Ошибка выполнения.
 //	int - HTTP статус код:
-//		- ошибки репозиториев
-//		- 200 OK при успешном выполнении
-//	    - 500 Internal Server Error при ошибках
+//		- 201 Created при успешном выполнении
+//		- 400 Bad Request при невозможность преобразовать выражение
+//		- 500 Internal Server Error при ошибках
 func (m *ExpressionManager) AddExpression(ctx context.Context, expressionString string, claims int64) (int64, error, int) {
 	tasks, err := task_splitter.ParseExpression(expressionString)
 	if err != nil {
@@ -89,24 +90,24 @@ func (m *ExpressionManager) AddExpression(ctx context.Context, expressionString 
 		return 0, fmt.Errorf("не удалось создать выражение: %w", err), http.StatusInternalServerError
 	}
 
-	return id, nil, http.StatusOK
+	return id, nil, http.StatusCreated
 }
 
 // ReadExpressions получает все выражения пользователя.
 //
 // Args:
 //
-//	ctx: context.Context - Контекст выполнения
-//	id: int64 - ID пользователя
+//	ctx: context.Context - Контекст выполнения.
+//	id: int64 - ID пользователя.
 //
 // Returns:
 //
-//	[]*models.Expression - Список выражений пользователя
-//	error - Ошибка выполнения
+//	[]*models.Expression - Список выражений пользователя.
+//	error - Ошибка выполнения.
 //	int - HTTP статус код:
-//		- ошибки репозиториев
 //		- 200 OK при успешном выполнении
-//	    - 500 Internal Server Error при ошибках
+//		- 404 Not Found если выражения не найдены
+//		- 500 Internal Server Error при ошибках
 func (m *ExpressionManager) ReadExpressions(ctx context.Context, id int64) ([]*models.Expression, error, int) {
 	tx, err := m.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -120,7 +121,7 @@ func (m *ExpressionManager) ReadExpressions(ctx context.Context, id int64) ([]*m
 	}
 
 	if err = tx.Commit(); err != nil {
-		return nil, err, http.StatusInternalServerError
+		return nil, fmt.Errorf("не удалось получить выражение: %w", err), http.StatusInternalServerError
 	}
 
 	return expressions, nil, http.StatusOK
@@ -130,16 +131,16 @@ func (m *ExpressionManager) ReadExpressions(ctx context.Context, id int64) ([]*m
 //
 // Args:
 //
-//	ctx: context.Context - Контекст выполнения
-//	id: int64 - ID выражения
+//	ctx: context.Context - Контекст выполнения.
+//	id: int64 - ID выражения.
 //
 // Returns:
 //
-//	*models.Expression - Найденное выражение
-//	error - Ошибка выполнения
+//	*models.Expression - Найденное выражение.
+//	error - Ошибка выполнения.
 //	int - HTTP статус код:
-//		- ошибки репозиториев
 //		- 200 OK при успешном выполнении
+//		- 404 Not Found если выражение не найдено
 //		- 500 Internal Server Error при ошибках
 func (m *ExpressionManager) ReadExpression(ctx context.Context, id int64) (*models.Expression, error, int) {
 	tx, err := m.db.BeginTx(ctx, nil)
@@ -172,7 +173,6 @@ func (m *ExpressionManager) ReadExpression(ctx context.Context, id int64) (*mode
 //	*models.Task - Готовая к выполнению задача
 //	error - Ошибка выполнения
 //	int - HTTP статус код:
-//		- ошибки репозиториев
 //		- 200 OK при успешном получении
 //		- 404 Not Found если задач нет
 //	    - 500 Internal Server Error при ошибках
@@ -235,7 +235,6 @@ outerLoop:
 //
 //	error - Ошибка выполнения
 //	int - HTTP статус код:
-//		- ошибки репозиториев
 //		- 200 OK при успешном выполнении
 //	    - 500 Internal Server Error при ошибках
 func (m *ExpressionManager) CompleteTask(ctx context.Context, taskCompleted *models.TaskCompleted) (error, int) {

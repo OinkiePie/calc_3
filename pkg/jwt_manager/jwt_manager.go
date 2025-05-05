@@ -1,9 +1,10 @@
-package jwt
+package jwt_manager
 
 import (
 	"errors"
 	"fmt"
 	"github.com/OinkiePie/calc_3/config"
+	"github.com/OinkiePie/calc_3/pkg/logger"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"time"
@@ -21,12 +22,16 @@ type Claims struct {
 }
 
 func NewJWTManager(secretKey string) *JWTManager {
+	if secretKey == "" {
+		logger.Log.Warnf("Секретный ключ пуст")
+	}
 	return &JWTManager{
 		secretKey: secretKey,
 	}
 }
 
 func (m *JWTManager) Generate(userID int64) (string, string, int64, error) {
+
 	jti := uuid.New().String()
 	exp := time.Now().Add(time.Minute * time.Duration(config.Cfg.Middleware.TOKEN_TTL_MIN)).Unix()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{

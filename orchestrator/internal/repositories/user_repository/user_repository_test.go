@@ -1,10 +1,11 @@
-package repositories_users
+package user_repository_test
 
 import (
 	"context"
 	"database/sql"
 	"errors"
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/user_repository"
 	"github.com/OinkiePie/calc_3/pkg/models"
 	"github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
@@ -19,7 +20,7 @@ func TestCreateUser_CorrectUser_Success(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := user_repository.NewUserRepository(db)
 
 	mock.ExpectQuery(`INSERT INTO users`).
 		WithArgs("test_login", "test_pass").
@@ -40,7 +41,7 @@ func TestCreateUser_DuplicateLogin_Error(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := user_repository.NewUserRepository(db)
 
 	mock.ExpectQuery(`INSERT INTO users`).
 		WithArgs("existing_login", "test_pass").
@@ -63,7 +64,7 @@ func TestCreateUser_CorrectUser_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := user_repository.NewUserRepository(db)
 
 	mock.ExpectQuery(`INSERT INTO users`).
 		WithArgs("test_login", "test_pass").
@@ -84,7 +85,7 @@ func TestCreateUser_CanceledContext_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := user_repository.NewUserRepository(db)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -104,7 +105,7 @@ func TestReadUserByLogin_CorrectLogin_Success(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := user_repository.NewUserRepository(db)
 
 	rows := sqlmock.NewRows([]string{"test_id", "test_login", "test_pass"}).AddRow(1, "test_login", "test_pass")
 	mock.ExpectQuery(`SELECT id, login, pas FROM users WHERE login = ?`).
@@ -126,7 +127,7 @@ func TestReadUserByLogin_CorrectLogin_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := user_repository.NewUserRepository(db)
 
 	mock.ExpectQuery(`SELECT id, login, pas FROM users WHERE login = ?`).
 		WithArgs("test_login").
@@ -147,7 +148,7 @@ func TestReadUserByLogin_UndefinedLogin_Error(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := user_repository.NewUserRepository(db)
 
 	mock.ExpectQuery(`SELECT id, login, pas FROM users WHERE login = ?`).
 		WithArgs("test_login").
@@ -168,7 +169,7 @@ func TestReadUserByLogin_CanceledContext_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := user_repository.NewUserRepository(db)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -188,7 +189,7 @@ func TestDeleteUser_CorrectId_Success(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := user_repository.NewUserRepository(db)
 
 	mock.ExpectExec(`DELETE FROM users WHERE id = ?`).
 		WithArgs(int64(1)).
@@ -208,7 +209,7 @@ func TestDeleteUser_IncorrectId_Success(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := user_repository.NewUserRepository(db)
 
 	mock.ExpectExec(`DELETE FROM users WHERE id = ?`).
 		WithArgs(int64(1)).
@@ -228,7 +229,7 @@ func TestDeleteUser_CorrectId_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := user_repository.NewUserRepository(db)
 
 	mock.ExpectExec(`DELETE FROM users WHERE id = ?`).
 		WithArgs(int64(1)).
@@ -249,7 +250,7 @@ func TestDeleteUser_CanceledContext_InternalError(t *testing.T) {
 	}
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := user_repository.NewUserRepository(db)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

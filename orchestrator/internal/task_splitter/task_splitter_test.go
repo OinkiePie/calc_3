@@ -1,7 +1,8 @@
-package task_splitter
+package task_splitter_test
 
 import (
 	"github.com/OinkiePie/calc_3/config"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/task_splitter"
 	"github.com/OinkiePie/calc_3/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"io"
@@ -193,7 +194,7 @@ func TestParseExpression(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tasks, err := ParseExpression(tt.expression)
+			tasks, err := task_splitter.ParseExpression(tt.expression)
 			if tt.expectError {
 				assert.Error(t, err)
 				return
