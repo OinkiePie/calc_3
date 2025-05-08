@@ -1,4 +1,4 @@
-package managers
+package user_manager
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories"
 	"github.com/OinkiePie/calc_3/pkg/jwt_manager"
+	"github.com/OinkiePie/calc_3/pkg/models"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
 )
@@ -187,11 +188,8 @@ func (m *UserManager) Delete(ctx context.Context, login, password string) (int64
 //	bool - Индикатор существования.
 func (m *UserManager) SessionExists(ctx context.Context, jti string) (error, bool) {
 	session, err, _ := m.sessionRepo.ReadSession(ctx, jti)
-	if session == nil {
-		if err != nil {
-			return err, false
-		}
-		return nil, false
+	if session == (*models.Session)(nil) {
+		return err, false
 	}
 	return nil, true
 }

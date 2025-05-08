@@ -77,13 +77,14 @@ func (w *Worker) Start(ctx context.Context) {
 
 			if err != nil {
 				// Обработка ошибок при получении задачи:
-				if prevErr.Error() != err.Error() {
+				if !errors.Is(err, prevErr) {
 					// Логируем только новые ошибки (чтобы не засорять логи)
 					logger.Log.Errorf("Рабочий %d: Ошибка при получении задачи: %v. Повторные запросы каждые %d мс.",
 						w.workerID, err, config.Cfg.Services.Agent.AGENT_REPEAT_ERR)
 				}
 				prevErr = err // Сохраняем текущую ошибку для сравнения со следующей
 				time.Sleep(time.Duration(config.Cfg.Services.Agent.AGENT_REPEAT_ERR) * time.Millisecond)
+				waiting = true
 				continue // Переходим к следующей итерации цикла (повторный запрос)
 			}
 
@@ -96,6 +97,7 @@ func (w *Worker) Start(ctx context.Context) {
 					waiting = false //  Устанавливаем флаг, что мы уже логировали состояние ожидания
 				}
 				time.Sleep(time.Duration(config.Cfg.Services.Agent.AGENT_REPEAT) * time.Millisecond)
+				prevErr = errors.New("")
 				continue // Переходим к следующей итерации цикла (повторный запрос)
 			}
 			// Получена задача:

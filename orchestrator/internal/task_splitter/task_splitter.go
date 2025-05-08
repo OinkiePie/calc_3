@@ -257,7 +257,7 @@ func isNumber(token string) bool {
 func rpnToTasks(rpn []string) ([]*models.Task, error) {
 	var tasks []*models.Task // Срез для хранения созданных задач
 	var stack []*models.Task // Стек для хранения операндов и промежуточных результатов
-	var indexer int          // Счетчик для индексации зависимостей (для удобства)
+	var indexer int          // Счетчик для индексации зависимостей
 
 	// Вспомогательная функция для создания новой задачи
 	newTask := func(operator string) models.Task {
@@ -291,17 +291,18 @@ func rpnToTasks(rpn []string) ([]*models.Task, error) {
 				val := *operand1.Result
 				task.Args[0] = &val // Используем значение
 			} else {
-				task.DependencyIndexes[0] = indexer //  Устанавливаем индекс зависимости
+				task.DependencyIndexes[0] = int(operand1.ID) //  Устанавливаем индекс зависимости
 			}
 
 			if operand2.Result != nil {
 				val := *operand2.Result
 				task.Args[1] = &val //  Используем значение
 			} else {
-				task.DependencyIndexes[1] = indexer //  Устанавливаем индекс зависимости
+				task.DependencyIndexes[1] = int(operand2.ID) //  Устанавливаем индекс зависимости
 			}
 
-			indexer++                                  //  Увеличиваем счетчик
+			indexer++ //  Увеличиваем счетчик
+			task.ID = int64(indexer)
 			tasks = append(tasks, &task)               //  Добавляем задачу в срез
 			stack = append(stack, tasks[len(tasks)-1]) //  Помещаем задачу в стек
 
@@ -322,10 +323,11 @@ func rpnToTasks(rpn []string) ([]*models.Task, error) {
 				val := *operand.Result
 				task.Args[0] = &val //  Используем значение
 			} else {
-				task.DependencyIndexes[0] = indexer // Устанавливаем индекс зависимости
+				task.DependencyIndexes[0] = int(operand.ID) // Устанавливаем индекс зависимости
 			}
 
-			indexer++                                  //  Увеличиваем счетчик
+			indexer++ //  Увеличиваем счетчик
+			task.ID = int64(indexer)
 			tasks = append(tasks, &task)               //  Добавляем задачу в срез
 			stack = append(stack, tasks[len(tasks)-1]) //  Помещаем задачу в стек
 

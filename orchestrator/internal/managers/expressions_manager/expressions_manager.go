@@ -1,4 +1,4 @@
-package managers
+package expressions_manager
 
 import (
 	"context"
@@ -7,7 +7,9 @@ import (
 	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/expressions_repository"
 	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/tasks_repository"
 	"github.com/OinkiePie/calc_3/orchestrator/internal/task_splitter"
+	"github.com/OinkiePie/calc_3/pkg/logger"
 	"github.com/OinkiePie/calc_3/pkg/models"
+	"github.com/OinkiePie/calc_3/pkg/operators"
 	"net/http"
 )
 
@@ -59,6 +61,9 @@ func NewExpressionManager(
 //		- 500 Internal Server Error при ошибках
 func (m *ExpressionManager) AddExpression(ctx context.Context, expressionString string, claims int64) (int64, error, int) {
 	tasks, err := task_splitter.ParseExpression(expressionString)
+	for _, task := range tasks {
+		logger.Log.Warnf("%+v", task)
+	}
 	if err != nil {
 		return 0, err, http.StatusBadRequest
 	}
@@ -191,7 +196,7 @@ func (m *ExpressionManager) ReadTask(ctx context.Context) (*models.Task, error, 
 outerLoop:
 	for _, task := range tasks {
 		for i := range task.Args {
-			if task.Args[i] == nil {
+			if task.Args[i] == nil && (i == 0 || task.Operation != operators.OpUnaryMinus) {
 				dep, err, code := m.taskRepo.ReadTaskByID(ctx, tx, task.Dependencies[i])
 				if dep == nil {
 					return nil, err, code

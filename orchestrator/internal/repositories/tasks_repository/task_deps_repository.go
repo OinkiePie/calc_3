@@ -100,7 +100,6 @@ func (r *TaskDepsRepository) UpdateTaskDeps(ctx context.Context, tx *sql.Tx, id 
         second = ?
 	WHERE
 	    task_id = ?`
-
 	_, err := tx.ExecContext(ctx, query, deps[0], deps[1], id)
 	if err != nil {
 		return fmt.Errorf("не удалось обновить зависимости задачи: %w", err)

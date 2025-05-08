@@ -84,7 +84,7 @@ func (db *DataBase) createTables() error {
 		CREATE TABLE IF NOT EXISTS tasks(
 			id INTEGER PRIMARY KEY AUTOINCREMENT, 
 			expression_id INTEGER NOT NULL,
-			operation TEXT NOT NULL CHECK(operation IN ('+', '-', '*', '/', '^', '-u')),
+			operation TEXT NOT NULL CHECK(operation IN ('+', '-', '*', '/', '^', 'u-')),
 		    result REAL,
 			status TEXT CHECK(status IN ('pending', 'processing', 'completed', 'error')) DEFAULT 'pending',
 		    

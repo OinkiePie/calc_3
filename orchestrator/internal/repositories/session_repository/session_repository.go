@@ -109,11 +109,25 @@ func (r *SessionRepository) ReadSession(ctx context.Context, jti string) (*model
 //		- 200 OK при успешном получении
 //		- 500 Internal Server Error при ошибках
 func (r *SessionRepository) DeleteSession(ctx context.Context, jti string) (error, int) {
-	query := `DELETE FROM sessions WHERE id = ?`
+	query := `
+	DELETE FROM
+	    sessions
+	WHERE
+	    id = ?`
 
-	_, err := r.db.ExecContext(ctx, query, jti)
+	result, err := r.db.ExecContext(ctx, query, jti)
 	if err != nil {
 		return fmt.Errorf("не удалось удалить сессию: %w", err), http.StatusInternalServerError
 	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("ошибка при проверке удаленных строк: %w", err), http.StatusInternalServerError
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("сессия для пользователя не найдена"), http.StatusNotFound
+	}
+
 	return nil, http.StatusOK
 }

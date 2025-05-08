@@ -24,7 +24,6 @@ func init() {
 }
 
 func TestDatabaseIntegration(t *testing.T) {
-
 	ctx := context.Background()
 
 	t.Run("NewDB success", func(t *testing.T) {

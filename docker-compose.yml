@@ -8,20 +8,29 @@ services:
     networks:
       - back
     environment:
-      - ADDR_ORCHESTRATOR=orchestrator
-      - PORT_ORCHESTRATOR=8080
+      ORCHESTRATOR_ADDR: orchestrator
+      ORCHESTRATOR_GRPC_PORT: 50051
+
   orchestrator:
     build:
       context: .
       dockerfile: orchestrator/Dockerfile
     ports:
-      - '8080:8080'
-      - '50051:50051'
+      - "8080:8080"
+      - "50051:50051"
+    volumes:
+      - sqlite_data:/data
     networks:
       - back
     environment:
-      - ADDR_ORCHESTRATOR=0.0.0.0
-      - PORT_ORCHESTRATOR=8080
+      DATABASE: "calc.db"
+      ORCHESTRATOR_ADDR: 0.0.0.0
+      ORCHESTRATOR_HTTP_PORT: 8080
+      ORCHESTRATOR_GRPC_PORT: 50051
+
+volumes:
+  sqlite_data:
+
 networks:
   back:
     driver: bridge

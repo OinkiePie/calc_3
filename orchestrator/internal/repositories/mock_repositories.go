@@ -11,6 +11,44 @@ func Float64Ptr(i float64) *float64 {
 	return &i
 }
 
+type MockUserRepository struct {
+	mock.Mock
+}
+
+func (m *MockUserRepository) CreateUser(ctx context.Context, login, pas string) (*models.User, error, int) {
+	args := m.Called(ctx, login, pas)
+	return args.Get(0).(*models.User), args.Error(1), args.Int(2)
+}
+
+func (m *MockUserRepository) ReadUserByLogin(ctx context.Context, login string) (*models.User, error, int) {
+	args := m.Called(ctx, login)
+	return args.Get(0).(*models.User), args.Error(1), args.Int(2)
+}
+
+func (m *MockUserRepository) DeleteUser(ctx context.Context, id int64) (error, int) {
+	args := m.Called(ctx, id)
+	return args.Error(0), args.Int(1)
+}
+
+type MockSessionRepository struct {
+	mock.Mock
+}
+
+func (m *MockSessionRepository) CreateSession(ctx context.Context, tx *sql.Tx, jti string, sub, exp int64) (error, int) {
+	args := m.Called(ctx, tx, jti, sub, exp)
+	return args.Error(0), args.Int(1)
+}
+
+func (m *MockSessionRepository) ReadSession(ctx context.Context, jti string) (*models.Session, error, int) {
+	args := m.Called(ctx, jti)
+	return args.Get(0).(*models.Session), args.Error(1), args.Int(2)
+}
+
+func (m *MockSessionRepository) DeleteSession(ctx context.Context, jti string) (error, int) {
+	args := m.Called(ctx, jti)
+	return args.Error(0), args.Int(1)
+}
+
 type MockArgsRepository struct {
 	mock.Mock
 }

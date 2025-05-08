@@ -1,4 +1,4 @@
-# Calc Service: Распределенная система для вычисления математических выражений
+# Calc Service: Итоговый проект по годовому курсу Яндекс Лицея "Программирование на Go" | 24 
  #### Проверяющему, 
 ##### Если при проверке решения, найдете недочет или серьезную ошибку, пожалуйста сообщите мне в `Issues` на github, или в телеграм `@artrubadur`, чтобы я мог их исправить. Я надеюсь на ваше снисхождение и понимание.
 ## Описание
@@ -156,6 +156,8 @@ logger:
 
     ```bash
     git clone https://github.com/OinkiePie/calc_3
+    ```
+    ```bash
     cd calc_3
     ```
 
@@ -163,7 +165,8 @@ logger:
 
     ```bash
     go build -o build/agent.exe ./agent/cmd/main.go
-
+    ```
+    ```bash
     go build -o build/orchestrator.exe ./orchestrator/cmd/main.go
     ```
     или
@@ -173,16 +176,15 @@ logger:
 
 ### Запуск (без Docker):
 
-1.  Проверьте наличие конфигурации (если вы в ней не уверены).
+1.  Проверьте наличие конфигурации, заданный адрес определяется относительно точки выполнения.
     
 2.  Запустите сервисы в отдельных терминалах:
 
     ```bash
     build/agent
-
+    ```
+    ```bash
     build/orchestrator
-
-    build/web
     ```
 
 ### Сборка и запуск с помощью Docker:
@@ -191,25 +193,39 @@ logger:
 
     ```bash
     git clone https://github.com/OinkiePie/calc_2
+    ```
+    ```bash
     cd calc_2
     ```
 
 2.  Соберите Docker-образы для каждого сервиса:
     ```bash
     docker build -t agent:latest -f agent/Dockerfile .
-
+    ```
+    ```bash
     docker build -t orchestrator:latest -f orchestrator/Dockerfile .
      ```
     или
     ```bash
     make d-build
     ```
-3.  Запустите контейнеры для каждого сервиса:
+3.  Создайте общую сеть и запустите контейнеры для каждого сервиса:
 
     ```bash
-    docker run agent:latest
-
-    docker run -p 8080:8080 orchestrator:latest
+    docker network create mynet
+    ```
+    ```bash
+    docker run -d --network mynet \
+    -p 8080:8080 -p 50051:50051 \
+    --name orchestrator \
+    -e ORCHESTRATOR_GRPC_ADDR=0.0.0.0 \
+    orchestrator:latest
+    ```
+    ```bash
+    docker run --network mynet \
+    -e ORCHESTRATOR_ADDR="orchestrator" \
+    -e ORCHESTRATOR_GRPC_PORT="50051" \
+    agent:latest
     ```
 
     Для запуска с другим адресом (по умолчанию `127.0.0.1:8081`) используйте (пример для Web сервиса):
@@ -227,12 +243,11 @@ logger:
     docker-compose up -d
     ```
 
-В файле `docker-compose.yml` вы можете изменить адреса и порты в блоке `environment`. Учтите что вы задаете их отдельно для каждого сервиса. Не забудьте что для общения сервисов между собой внутри, docker обращается по названию, например `orchestrator:8080` вместо обычного `127.0.0.1:8081`. При желании можете указать индивидуальные файлы конфигурации через `APP_CFG`.
+В файле `docker-compose.yml` вы можете изменить адреса и порты в блоке `environment`. Учтите что вы задаете их отдельно для каждого сервиса. Не забудьте что для общения сервисов между собой внутри, docker обращается по названию, например `orchestrator:8080` вместо обычного `127.0.0.1:8080`. При желании можете указать индивидуальные файлы конфигурации через `APP_CFG`.
 
 ## Использование
 Вы можете открыть `orchestrator\internal\handlers\handlers.go` и `orchestrator\internal\router\router.go` чтобы увидеть подробное описание каждого запроса, указанное в комментариях, включая параметры и требования к запросу.
 
-Для проверки вычислительных способностей рекомендую использовать веб интерфейс. Если желаете проверить качество запросов используйте команды ниже (если вы изменили адрес или делаете запрос внутри docker не забудьте исправить запрос). 
 
 Если вы решили делать запросы внутри docker для этого придется раскомментировать определенную строку в dockerfile сервиса для установки `bash`, а позже внутри него (`docker exec -it <id сервиса> bash`) прописать `apk update; apk add curl` для установки curl.
 

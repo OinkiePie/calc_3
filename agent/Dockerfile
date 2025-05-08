@@ -24,16 +24,18 @@ FROM alpine:latest
 
 WORKDIR /app
 
-# Копируем исполняемый файл из билдера
+# Копируем исполняемый файл
 COPY --from=builder /app/agent-app ./
 
-# Копируем .env файл
+# Копируем конфигурационные файлы
 COPY --from=builder /app/.env ./.env
-
-# Копируем config
 COPY --from=builder /app/config ./config
 
 # Устанавливаем права на выполнение
 RUN chmod +x ./agent-app
+
+# Переменные окружения для gRPC
+ENV ORCHESTRATOR_ADDR="orchestrator" \
+    ORCHESTRATOR_GRPC_PORT="50051"
 
 CMD ["./agent-app"]
