@@ -82,8 +82,12 @@ func (m *Middleware) EnableAuth(next http.Handler) http.Handler {
 
 		if err != nil {
 			if claims.JWTID != "" {
-				err, _ := m.userManager.Logout(r.Context(), claims.JWTID)
+				err, code := m.userManager.Logout(r.Context(), claims.JWTID)
 				if err != nil {
+					if code == http.StatusNotFound {
+						http.Error(w, "Сессия была завершена или истекла", http.StatusUnauthorized)
+						return
+					}
 					http.Error(w, err.Error(), http.StatusUnauthorized)
 					return
 				}

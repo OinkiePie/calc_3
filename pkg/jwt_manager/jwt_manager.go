@@ -10,17 +10,28 @@ import (
 	"time"
 )
 
+// JWTManager предоставляет функциональность для работы с JWT токенами.
 type JWTManager struct {
-	secretKey string
+	secretKey string // Секретный ключ для подписи токенов
 }
 
+// Claims представляет кастомные claims JWT токена.
 type Claims struct {
-	Subject   int64  `json:"sub"`
-	ExpiresAt int64  `json:"exp"`
-	JWTID     string `json:"jti"`
+	Subject   int64  `json:"sub"` // ID пользователя
+	ExpiresAt int64  `json:"exp"` // Время истечения токена в Unix timestamp
+	JWTID     string `json:"jti"` // Уникальный идентификатор токена
 	jwt.RegisteredClaims
 }
 
+// NewJWTManager создает новый экземпляр JWTManager.
+//
+// Args:
+//
+//	secretKey: string - Секретный ключ для подписи токенов.
+//
+// Returns:
+//
+//	*JWTManager - Указатель на созданный JWTManager.
 func NewJWTManager(secretKey string) *JWTManager {
 	if secretKey == "" {
 		logger.Log.Warnf("Секретный ключ пуст")
@@ -30,6 +41,18 @@ func NewJWTManager(secretKey string) *JWTManager {
 	}
 }
 
+// Generate создает новый JWT токен для указанного пользователя.
+//
+// Args:
+//
+//	userID: int64 - ID пользователя, для которого генерируется токен.
+//
+// Returns:
+//
+//	string - Сгенерированный токен.
+//	string - Уникальный идентификатор токена (jti).
+//	int64 - Время истечения токена в Unix timestamp.
+//	error - Ошибка, если генерация не удалась.
 func (m *JWTManager) Generate(userID int64) (string, string, int64, error) {
 
 	jti := uuid.New().String()
@@ -43,6 +66,16 @@ func (m *JWTManager) Generate(userID int64) (string, string, int64, error) {
 	return signedToken, jti, exp, err
 }
 
+// Validate проверяет валидность JWT токена и извлекает claims.
+//
+// Args:
+//
+//	tokenString: string - JWT токен для валидации.
+//
+// Returns:
+//
+//	Claims - Извлеченные claims из токена.
+//	error - Ошибка валидации или парсинга токена.
 func (m *JWTManager) Validate(tokenString string) (Claims, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -76,6 +109,16 @@ func (m *JWTManager) Validate(tokenString string) (Claims, error) {
 	return claims, nil
 }
 
+// parseClaims преобразует raw claims из JWT токена в структуру Claims.
+//
+// Args:
+//
+//	claims: jwt.MapClaims - Сырые claims из JWT токена.
+//
+// Returns:
+//
+//	Claims - Преобразованная структура claims.
+//	error - Ошибка, если преобразование не удалось.
 func (m *JWTManager) parseClaims(claims jwt.MapClaims) (Claims, error) {
 	subInterface, ok := claims["sub"]
 	if !ok {

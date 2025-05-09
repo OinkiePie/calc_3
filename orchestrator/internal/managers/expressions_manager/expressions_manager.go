@@ -4,10 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/expressions_repository"
-	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories/tasks_repository"
+	"github.com/OinkiePie/calc_3/orchestrator/internal/repositories"
 	"github.com/OinkiePie/calc_3/orchestrator/internal/task_splitter"
-	"github.com/OinkiePie/calc_3/pkg/logger"
 	"github.com/OinkiePie/calc_3/pkg/models"
 	"github.com/OinkiePie/calc_3/pkg/operators"
 	"net/http"
@@ -15,9 +13,9 @@ import (
 
 // ExpressionManager предоставляет методы для управления математическими выражениями.
 type ExpressionManager struct {
-	db       *sql.DB                                       // Подключение к базе данных
-	exprRepo *expressions_repository.ExpressionsRepository // Репозиторий выражений
-	taskRepo *tasks_repository.TasksRepository             // Репозиторий задач
+	db       *sql.DB                                     // Подключение к базе данных
+	exprRepo repositories.ExpressionsRepositoryInterface // Репозиторий выражений
+	taskRepo repositories.TasksRepositoryInterface       // Репозиторий задач
 }
 
 // NewExpressionManager создает новый экземпляр менеджера выражений.
@@ -33,8 +31,8 @@ type ExpressionManager struct {
 //	*ExpressionManager - Новый экземпляр менеджера
 func NewExpressionManager(
 	db *sql.DB,
-	exprRepo *expressions_repository.ExpressionsRepository,
-	taskRepo *tasks_repository.TasksRepository,
+	exprRepo repositories.ExpressionsRepositoryInterface,
+	taskRepo repositories.TasksRepositoryInterface,
 ) *ExpressionManager {
 	return &ExpressionManager{
 		db:       db,
@@ -61,9 +59,6 @@ func NewExpressionManager(
 //		- 500 Internal Server Error при ошибках
 func (m *ExpressionManager) AddExpression(ctx context.Context, expressionString string, claims int64) (int64, error, int) {
 	tasks, err := task_splitter.ParseExpression(expressionString)
-	for _, task := range tasks {
-		logger.Log.Warnf("%+v", task)
-	}
 	if err != nil {
 		return 0, err, http.StatusBadRequest
 	}

@@ -192,8 +192,9 @@ func TestDeleteSession_IncorrectId_Success(t *testing.T) {
 
 	err, code := repo.DeleteSession(context.Background(), "test_id")
 
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusOK, code)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "сессия для пользователя не найдена")
+	assert.Equal(t, http.StatusNotFound, code)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 

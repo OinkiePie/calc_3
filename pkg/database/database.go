@@ -12,13 +12,30 @@ import (
 	"time"
 )
 
+// DataBase представляет обёртку для работы с базой данных SQLite.
+//
+// Fields:
+//
+//	DB: *sql.DB - Подключение к базе данных.
+//	ctx: context.Context - Контекст выполнения.
+//	dsn: string - Data Source Name для подключения.
 type DataBase struct {
 	DB  *sql.DB
 	ctx context.Context
 	dsn string
 }
 
-// NewDB создаёт подключение и таблицы (если их нет).
+// NewDB создаёт новое подключение к базе данных SQLite и инициализирует таблицы.
+//
+// Args:
+//
+//	ctx: context.Context - Контекст выполнения.
+//	dsn: string - Data Source Name для подключения к SQLite.
+//
+// Returns:
+//
+//	*DataBase - Указатель на созданный объект базы данных.
+//	error - Ошибка, если подключение или инициализация не удались.
 func NewDB(ctx context.Context, dsn string) (*DataBase, error) {
 	db, err := sql.Open("sqlite3", dsn)
 	if err != nil {
@@ -49,9 +66,16 @@ func NewDB(ctx context.Context, dsn string) (*DataBase, error) {
 	return database, nil
 }
 
-// createTables — приватный метод для создания таблиц.
+// createTables создаёт все необходимые таблицы в базе данных, если они не существуют.
+//
+// Returns:
+//
+//	error - Ошибка, если создание какой-либо таблицы не удалось.
 func (db *DataBase) createTables() error {
 	const (
+		// Создание таблицы пользователей
+		//
+		// Хранит логины и хеши паролей пользователей
 		usersTable = `
 		CREATE TABLE IF NOT EXISTS users(
 			id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -59,6 +83,9 @@ func (db *DataBase) createTables() error {
 			pas TEXT NOT NULL
 		);`
 
+		// Создание таблицы выражений
+		//
+		// Хранит выражения для вычисления и их статусы
 		sessionsTable = `
 		CREATE TABLE IF NOT EXISTS sessions(
 			id VARCHAR(36) PRIMARY KEY,
@@ -68,6 +95,9 @@ func (db *DataBase) createTables() error {
 		    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 		);`
 
+		// Создание таблицы задач
+		//
+		// Содержит отдельные операции для вычисления выражений
 		expressionsTable = `
 		CREATE TABLE IF NOT EXISTS expressions(
 			id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -80,6 +110,9 @@ func (db *DataBase) createTables() error {
 			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 		);`
 
+		// Создание таблицы аргументов задач
+		//
+		// Хранит числовые аргументы для задач
 		tasksTable = `
 		CREATE TABLE IF NOT EXISTS tasks(
 			id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -91,6 +124,9 @@ func (db *DataBase) createTables() error {
 			FOREIGN KEY (expression_id) REFERENCES expressions(id) ON DELETE CASCADE
 		);`
 
+		// Создание таблицы зависимостей задач
+		//
+		// Содержит связи между задачами для построения графа вычислений
 		tasksArgsTable = `
 		CREATE TABLE IF NOT EXISTS task_args (
 			task_id INTEGER PRIMARY KEY NOT NULL,
@@ -137,6 +173,11 @@ func (db *DataBase) createTables() error {
 	return nil
 }
 
+// CloseDB закрывает подключение к базе данных.
+//
+// Returns:
+//
+//	error - Ошибка, если закрытие подключения не удалось.
 func (db *DataBase) CloseDB() error {
 	if err := db.DB.Close(); err != nil {
 		return fmt.Errorf("не удалось отключить базу данных: %w", err)
@@ -144,6 +185,11 @@ func (db *DataBase) CloseDB() error {
 	return nil
 }
 
+// DeleteDB полностью удаляет файл базы данных.
+//
+// Returns:
+//
+//	error - Ошибка, если удаление файла не удалось.
 func (db *DataBase) DeleteDB() error {
 	if db.dsn == "" {
 		return fmt.Errorf("пустое название базы данных")
@@ -159,6 +205,11 @@ func (db *DataBase) DeleteDB() error {
 	return nil
 }
 
+// ClearDB очищает все данные из всех таблиц базы данных.
+//
+// Returns:
+//
+//	error - Ошибка, если очистка какой-либо таблицы не удалась.
 func (db *DataBase) ClearDB() error {
 	tables := []string{"users", "expressions", "tasks", "task_args", "task_deps", "sessions"}
 
@@ -196,7 +247,11 @@ func (db *DataBase) ClearDB() error {
 	return nil
 }
 
-// startSessionCleaner запускает фоновую очистку сессий
+// startSessionCleaner запускает фоновую горутину для периодической очистки истёкших сессий.
+//
+// Args:
+//
+//	db: *sql.DB - Подключение к базе данных.
 func startSessionCleaner(db *sql.DB) {
 	go func() {
 		ticker := time.NewTicker(time.Duration(config.Cfg.Middleware.SESSION_CLEAR_MIN) * time.Minute)
@@ -208,7 +263,11 @@ func startSessionCleaner(db *sql.DB) {
 	}()
 }
 
-// cleanExpiredSessions удаляет истекшие сессии
+// cleanExpiredSessions удаляет все сессии с истёкшим сроком действия.
+//
+// Args:
+//
+//	db: *sql.DB - Подключение к базе данных.
 func cleanExpiredSessions(db *sql.DB) {
 	_, err := db.Exec(`
 		DELETE FROM sessions 

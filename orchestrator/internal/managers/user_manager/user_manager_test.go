@@ -132,7 +132,7 @@ func TestUserManager_Login(t *testing.T) {
 		mockJWTManager.On("Generate", userID).
 			Return(testToken, testJTI, testExp, nil).Once()
 
-		mockSessionRepo.On("CreateSession", ctx, mock.Anything, testJTI, userID, testExp).
+		mockSessionRepo.On("CreateSession", ctx, mock.AnythingOfType("*sql.Tx"), testJTI, userID, testExp).
 			Return(nil, http.StatusOK).Once()
 
 		mockDB.ExpectBegin()
@@ -144,6 +144,7 @@ func TestUserManager_Login(t *testing.T) {
 		assert.Equal(t, userID, id)
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusOK, code)
+
 	})
 
 	t.Run("user not found", func(t *testing.T) {
@@ -158,6 +159,7 @@ func TestUserManager_Login(t *testing.T) {
 		assert.Error(t, err)
 		assert.Equal(t, "неверный логин или пароль", err.Error())
 		assert.Equal(t, http.StatusUnauthorized, code)
+
 	})
 
 	t.Run("wrong password", func(t *testing.T) {
@@ -176,6 +178,7 @@ func TestUserManager_Login(t *testing.T) {
 		assert.Error(t, err)
 		assert.Equal(t, "неверный логин или пароль", err.Error())
 		assert.Equal(t, http.StatusUnauthorized, code)
+
 	})
 
 	t.Run("token generation error", func(t *testing.T) {
@@ -197,6 +200,7 @@ func TestUserManager_Login(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "не удалось сгенерировать токен")
 		assert.Equal(t, http.StatusInternalServerError, code)
+
 	})
 
 	t.Run("session creation error", func(t *testing.T) {
@@ -210,7 +214,7 @@ func TestUserManager_Login(t *testing.T) {
 		mockJWTManager.On("Generate", userID).
 			Return(testToken, testJTI, testExp, nil).Once()
 
-		mockSessionRepo.On("CreateSession", ctx, mock.Anything, testJTI, userID, testExp).
+		mockSessionRepo.On("CreateSession", ctx, mock.AnythingOfType("*sql.Tx"), testJTI, userID, testExp).
 			Return(errors.New("session error"), http.StatusInternalServerError).Once()
 
 		mockDB.ExpectBegin()
@@ -221,6 +225,7 @@ func TestUserManager_Login(t *testing.T) {
 		assert.Error(t, err)
 		assert.Equal(t, "session error", err.Error())
 		assert.Equal(t, http.StatusUnauthorized, code)
+
 	})
 
 	t.Run("transaction commit error", func(t *testing.T) {
@@ -234,7 +239,7 @@ func TestUserManager_Login(t *testing.T) {
 		mockJWTManager.On("Generate", userID).
 			Return(testToken, testJTI, testExp, nil).Once()
 
-		mockSessionRepo.On("CreateSession", ctx, mock.Anything, testJTI, userID, testExp).
+		mockSessionRepo.On("CreateSession", ctx, mock.AnythingOfType("*sql.Tx"), testJTI, userID, testExp).
 			Return(nil, http.StatusOK).Once()
 
 		mockDB.ExpectBegin()
@@ -245,6 +250,7 @@ func TestUserManager_Login(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "вход пользователя не удался")
 		assert.Equal(t, http.StatusInternalServerError, code)
+
 	})
 }
 
@@ -432,7 +438,7 @@ func TestUserManager_SessionExists(t *testing.T) {
 // ИНТЕГРАЦИОНнЫЕ ТЕСТЫ
 
 func TestUserManager_Register_Integration(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite3", "file:testdb?mode=memory&cache=shared")
 	if err != nil {
 		t.Fatal(err)
 	}

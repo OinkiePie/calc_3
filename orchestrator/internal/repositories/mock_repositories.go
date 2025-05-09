@@ -49,42 +49,43 @@ func (m *MockSessionRepository) DeleteSession(ctx context.Context, jti string) (
 	return args.Error(0), args.Int(1)
 }
 
-type MockArgsRepository struct {
+type MockExpressionsRepository struct {
 	mock.Mock
 }
 
-func (m *MockArgsRepository) CreateTaskArgs(ctx context.Context, tx *sql.Tx, task *models.Task) error {
-	args := m.Called(ctx, tx, task)
-	return args.Error(0)
+func (m *MockExpressionsRepository) CreateExpression(ctx context.Context, tx *sql.Tx, expr *models.Expression) (int64, error, int) {
+	args := m.Called(ctx, tx, expr)
+	return args.Get(0).(int64), args.Error(1), args.Int(2)
 }
 
-func (m *MockArgsRepository) ReadTaskArgs(ctx context.Context, tx *sql.Tx, id int64) ([]*float64, error) {
+func (m *MockExpressionsRepository) ReadExpressionByID(ctx context.Context, tx *sql.Tx, id int64) (*models.Expression, error, int) {
 	args := m.Called(ctx, tx, id)
-	return args.Get(0).([]*float64), args.Error(1)
+	return args.Get(0).(*models.Expression), args.Error(1), args.Int(2)
 }
 
-func (m *MockArgsRepository) UpdateTaskArgs(ctx context.Context, tx *sql.Tx, id int64, index int, value *float64) error {
-	args := m.Called(ctx, tx, id, index, value)
-	return args.Error(0)
+func (m *MockExpressionsRepository) ReadExpressionsByUserID(ctx context.Context, tx *sql.Tx, userID int64) ([]*models.Expression, error, int) {
+	args := m.Called(ctx, tx, userID)
+	return args.Get(0).([]*models.Expression), args.Error(1), args.Int(2)
 }
 
-type MockDepsRepository struct {
-	mock.Mock
-}
-
-func (m *MockDepsRepository) CreateTaskDeps(ctx context.Context, tx *sql.Tx, task *models.Task) error {
-	args := m.Called(ctx, tx, task)
-	return args.Error(0)
-}
-
-func (m *MockDepsRepository) ReadTaskDeps(ctx context.Context, tx *sql.Tx, id int64) ([]int64, error) {
+func (m *MockExpressionsRepository) ReadExpressionTasks(ctx context.Context, tx *sql.Tx, id int64) ([]*models.Task, error, int) {
 	args := m.Called(ctx, tx, id)
-	return args.Get(0).([]int64), args.Error(1)
+	return args.Get(0).([]*models.Task), args.Error(1), args.Int(2)
 }
 
-func (m *MockDepsRepository) UpdateTaskDeps(ctx context.Context, tx *sql.Tx, id int64, deps []int64) error {
-	args := m.Called(ctx, tx, id, deps)
-	return args.Error(0)
+func (m *MockExpressionsRepository) UpdateExpressionStatus(ctx context.Context, tx *sql.Tx, id int64, status string) (error, int) {
+	args := m.Called(ctx, tx, id, status)
+	return args.Error(0), args.Int(1)
+}
+
+func (m *MockExpressionsRepository) UpdateExpressionError(ctx context.Context, tx *sql.Tx, id int64, errContent string) (error, int) {
+	args := m.Called(ctx, tx, id, errContent)
+	return args.Error(0), args.Int(1)
+}
+
+func (m *MockExpressionsRepository) UpdateExpressionResult(ctx context.Context, tx *sql.Tx, id int64, result float64) (error, int) {
+	args := m.Called(ctx, tx, id, result)
+	return args.Error(0), args.Int(1)
 }
 
 type MockTasksRepository struct {
@@ -139,4 +140,42 @@ func (m *MockTasksRepository) UpdateTaskResult(ctx context.Context, tx *sql.Tx, 
 func (m *MockTasksRepository) DeleteTasks(ctx context.Context, tx *sql.Tx, id int64) (error, int) {
 	args := m.Called(ctx, tx, id)
 	return args.Error(0), args.Int(1)
+}
+
+type MockArgsRepository struct {
+	mock.Mock
+}
+
+func (m *MockArgsRepository) CreateTaskArgs(ctx context.Context, tx *sql.Tx, task *models.Task) error {
+	args := m.Called(ctx, tx, task)
+	return args.Error(0)
+}
+
+func (m *MockArgsRepository) ReadTaskArgs(ctx context.Context, tx *sql.Tx, id int64) ([]*float64, error) {
+	args := m.Called(ctx, tx, id)
+	return args.Get(0).([]*float64), args.Error(1)
+}
+
+func (m *MockArgsRepository) UpdateTaskArgs(ctx context.Context, tx *sql.Tx, id int64, index int, value *float64) error {
+	args := m.Called(ctx, tx, id, index, value)
+	return args.Error(0)
+}
+
+type MockDepsRepository struct {
+	mock.Mock
+}
+
+func (m *MockDepsRepository) CreateTaskDeps(ctx context.Context, tx *sql.Tx, task *models.Task) error {
+	args := m.Called(ctx, tx, task)
+	return args.Error(0)
+}
+
+func (m *MockDepsRepository) ReadTaskDeps(ctx context.Context, tx *sql.Tx, id int64) ([]int64, error) {
+	args := m.Called(ctx, tx, id)
+	return args.Get(0).([]int64), args.Error(1)
+}
+
+func (m *MockDepsRepository) UpdateTaskDeps(ctx context.Context, tx *sql.Tx, id int64, deps []int64) error {
+	args := m.Called(ctx, tx, id, deps)
+	return args.Error(0)
 }

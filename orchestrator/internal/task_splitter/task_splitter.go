@@ -67,9 +67,9 @@ func precedence(op string) int {
 		return 1
 	case operators.OpMultiply, operators.OpDivide:
 		return 2
-	case operators.OpPower:
-		return 3
 	case operators.OpUnaryMinus:
+		return 3
+	case operators.OpPower:
 		return 4
 	default:
 		return 0
