@@ -1,0 +1,9 @@
+**/*_test.go
+**/*.md
+**/.git
+**/.gitignore
+**/docker-compose*.yml
+**/Dockerfile*
+**/.dockerignore
+**/bin/
+**/tmp/

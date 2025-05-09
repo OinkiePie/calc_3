@@ -77,7 +77,7 @@ docker run -d --network mynet \
     orchestrator:latest
 ```
 ### Что делают параметры ENV?
-```js
+```
 APP_CFG=config/configs/dev.yml // Адрес файла конфигурации, можеть быть CFG_FALSE
 
 SECRET_KEY=secret   // Секретный ключ для генерации JWT токенов
