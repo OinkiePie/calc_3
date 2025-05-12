@@ -235,7 +235,7 @@ logger:
 3.  Создайте общую сеть и запустите контейнеры для каждого сервиса:
 
     ```bash
-    docker network create mynet
+    docker network create mynet`	
     ```
     ```bash
     docker run -d --network mynet \
@@ -420,7 +420,7 @@ curl --location 'http://localhost:8080/api/p/calculate' \
 ##### Для удаления сессии (выхода) используйте запрос `curl` подобный следующему:
 ```bash
 curl --location 'http://localhost:8080/api/p/logout' \
---header 'Authorization: valid.jwt.token'
+--header 'Authorization: Bearer valid.jwt.token'
 ```
 Ответы:
 - 200 OK - при успешном завершении сессии
